@@ -430,6 +430,77 @@ func registerBudgetRoutes(mux *http.ServeMux, svc *budgets.Service) {
 		writeJSON(w, http.StatusOK, map[string]any{"summary": summary})
 	})
 }
+func registerSpendingRoutes(mux *http.ServeMux, svc *transactions.Service) {
+	mux.HandleFunc("GET /api/v1/spending/summary", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		from := r.URL.Query().Get("from")
+		to := r.URL.Query().Get("to")
+		q := transactions.Filter{From: from, To: to}
+		list, err := svc.List(r.Context(), ws, q)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		var totalMinor int64
+		for _, tx := range list {
+			totalMinor += tx.AmountMinor
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"total_spent_minor": totalMinor, "transactions": list})
+	})
+	mux.HandleFunc("GET /api/v1/spending/tag-summary", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		from := r.URL.Query().Get("from")
+		to := r.URL.Query().Get("to")
+		q := transactions.Filter{From: from, To: to}
+		list, err := svc.List(r.Context(), ws, q)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		tagSpending := make(map[string]int64)
+		for _, tx := range list {
+			for _, tagID := range tx.TagIDs {
+				tagSpending[tagID] += tx.AmountMinor
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"tag_spending": tagSpending})
+	})
+}
+
+func registerRecommendationRoutes(mux *http.ServeMux, bsvc *budgets.Service, tsvc *tags.Service) {
+	mux.HandleFunc("GET /api/v1/recommendations", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		allBudgets, err := bsvc.List(r.Context(), ws)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		spentPerTag := make(map[string]int64)
+		budgetRemaining := make(map[string]int64)
+		for _, budget := range allBudgets {
+			summary, err := bsvc.Summarize(r.Context(), ws, budgets.SummaryOptions{})
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			for _, s := range summary {
+				spentPerTag[s.TagID] = s.SpentMinor
+				budgetRemaining[budget.ID] = budget.AmountMinor - spentPerTag[budget.ID]
+			}
+		}
+		overBudget := []string{}
+		for tagID, spent := range spentPerTag {
+			if budget, ok := budgetRemaining[tagID]; ok && spent >= budget {
+				overBudget = append(overBudget, tagID)
+			}
+		}
+		recommendations := map[string]any{
+			"over_budget_tags": overBudget,
+			"budget_remaining": budgetRemaining,
+		}
+		writeJSON(w, http.StatusOK, recommendations)
+	})
+}
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/problem+json")
