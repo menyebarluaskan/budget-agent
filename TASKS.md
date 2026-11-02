@@ -31,7 +31,7 @@ Live progress tracker for **Integrated Personal Budget**.
 | T-001 | Inspect repository and existing README | `[x]` | `docs: add initial project README` |
 | T-002 | Create `AGENTS.md` with working rules and conventions | `[x]` | `docs: add agent guidelines and task tracker` |
 | T-003 | Write `docs/TECH_SPEC.md` covering architecture, stack, data model, API, AI/MCP, UI, deployment, security, and tests | `[x]` | `docs: add technical specification for review` |
-| T-004 | Update `README.md` with project status, architecture summary, and documentation links | `[ ]` | — |
+| T-004 | Update `README.md` with project status, architecture summary, and documentation links | `[x]` | `docs: refresh README with project status and links` |
 | T-005 | **Maintainer review and approval of the technical specification** | `[!]` | — |
 | T-006 | Resolve the open decisions listed in the spec | `[!]` | — |
 | T-007 | Scaffold repository layout, toolchain, and `Makefile` | `[ ]` | — |
