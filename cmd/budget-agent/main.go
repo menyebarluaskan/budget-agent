@@ -15,6 +15,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"budget-agent/internal/accounts"
 	"budget-agent/internal/config"
 	"budget-agent/internal/db"
 	"budget-agent/internal/httpapi"
@@ -49,11 +50,14 @@ func run() error {
 	if err := db.Migrate(database); err != nil {
 		return fmt.Errorf("migrate database: %w", err)
 	}
+	if err := accounts.EnsureDefaultWorkspace(context.Background(), database); err != nil {
+		return fmt.Errorf("bootstrap workspace: %w", err)
+	}
 
 	ready := func(ctx context.Context) error { return database.PingContext(ctx) }
 	server := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           httpapi.New(httpapi.Options{Logger: logger, Ready: ready}),
+		Handler:           httpapi.New(httpapi.Options{Logger: logger, Ready: ready, DB: database}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
