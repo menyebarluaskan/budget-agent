@@ -166,7 +166,6 @@ func (s *Service) Update(ctx context.Context, workspaceID, id string, in UpdateI
 	return s.Get(ctx, workspaceID, id)
 }
 
-
 func (s *Service) Delete(ctx context.Context, workspaceID, id string) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM accounts WHERE id = ? AND workspace_id = ?`, id, workspaceID)
 	if err != nil {
