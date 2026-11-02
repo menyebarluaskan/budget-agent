@@ -793,8 +793,13 @@ workspace and hide the switcher until there is more than one.
 
 **Concrete schema notes for B:**
 
-- `workspaces`: `id` TEXT PK, `name` TEXT, `created_at` TEXT, `updated_at` TEXT.
-  Add a default workspace during migrations.
+- `users`: `id` TEXT PK, `tailscale_login` TEXT UNIQUE, `display_name` TEXT,
+  `created_at` TEXT.
+- `workspaces`: `id` TEXT PK, `name` TEXT, `owner_user_id` TEXT REFERENCES
+  `users(id)`, `created_at` TEXT, `updated_at` TEXT. Add a default workspace
+  during migrations.
+- `workspace_members`: `(workspace_id, user_id)` composite PK, `role` TEXT
+  (`owner`, `member`), `created_at` TEXT.
 - Add `workspace_id` TEXT NOT NULL REFERENCES `workspaces(id)` to: `accounts`,
   `transactions`, `tags`, `budgets`, `receipts`, `drafts`, `api_tokens`,
   `jobs`, and `audit_log`.
