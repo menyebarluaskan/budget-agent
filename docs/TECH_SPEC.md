@@ -518,8 +518,9 @@ Key unit settings:
 - Health: `HealthCmd=/budget-agent healthcheck`, `HealthInterval=30s`,
   `HealthOnFailure=kill`, plus `Restart=on-failure` in `[Service]`.
 - Tailscale: `TS_USERSPACE=true`, `TS_STATE_DIR=/var/lib/tailscale`,
-  `TS_SERVE_CONFIG=/etc/tailscale/serve.json`, and a state bind mount at
-  `%h/.local/share/budget-agent/tailscale:/var/lib/tailscale:Z`.
+  `TS_SERVE_CONFIG=/etc/tailscale/serve.json`, a state bind mount at
+  `%h/.local/share/budget-agent/tailscale:/var/lib/tailscale:Z`, and the Serve
+  config mounted read-only from `~/.config/budget-agent/serve.json`.
 - Tailscale never uses `NET_ADMIN`, `/dev/net/tun`, or a public host port in the
   default design.
 - Both containers join `budget-agent.pod`, so `127.0.0.1` is shared between them.
@@ -542,7 +543,8 @@ mkdir -p ~/.config/containers/systemd \
 cp deploy/quadlet/budget-agent.env.example \
   ~/.config/budget-agent/budget-agent.env
 chmod 600 ~/.config/budget-agent/budget-agent.env
-# Fill in secrets and BASE_URL, then:
+cp deploy/quadlet/serve.json ~/.config/budget-agent/serve.json
+# Fill in secrets, BASE_URL, and the tailnet hostname, then:
 ln -sf "$PWD/deploy/quadlet/budget-agent.pod" \
   ~/.config/containers/systemd/
 ln -sf "$PWD/deploy/quadlet/budget-agent.container" \
