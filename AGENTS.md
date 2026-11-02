@@ -137,6 +137,7 @@ Quality gates:
 
 - Backend: `gofmt`, `go vet`, unit tests (`go test ./...`).
 - Frontend: type check (`svelte-check`), lint/format (`prettier`, `eslint`), unit tests (`vitest`), production build (`vite build`).
+- CI: `.github/workflows/ci.yml` runs `make check` on pushes to `main` and on pull requests.
 - Integration/E2E tests land with their milestones.
 
 ## 8. Security rules

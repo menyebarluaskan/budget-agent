@@ -23,8 +23,9 @@ Live progress tracker for **Integrated Personal Budget**.
 
 ## Current phase
 
-**Phase 1 — Foundation.** Scaffolding is complete; CI is the remaining
-foundation task. No feature milestone has started.
+**Phase 1 — Foundation.** Specification, scaffolding, and CI are in place. The
+D10 license decision is the remaining foundation item. No feature milestone has
+started; backend core is next.
 
 ## Milestone 0 — Project foundations
 
@@ -37,7 +38,7 @@ foundation task. No feature milestone has started.
 | T-005 | **Maintainer review and approval of the technical specification** | `[x]` | `docs: approve technical specification` |
 | T-006 | Resolve the open decisions listed in the spec | `[x]` | `docs(spec): finalize D2 and deployment details` |
 | T-007 | Scaffold repository layout, toolchain, and `Makefile` | `[x]` | `chore: scaffold repository and toolchain` |
-| T-008 | Add CI pipeline and baseline quality gates | `[!]` | Awaiting D11 |
+| T-008 | Add CI pipeline and baseline quality gates | `[x]` | `ci: add GitHub Actions quality gate` |
 | T-009 | Revise deployment from Kubernetes to rootless Podman Quadlet with symlinked units | `[x]` | `docs(deploy): replace Kubernetes with rootless Podman Quadlet` |
 | T-010 | Record approved/deferred decisions and expand the user-model options | `[x]` | `docs(spec): record decisions and expand user model options` |
 | T-011 | Update README for multi-workspace budgeting and the miniPC target | `[x]` | `docs: mention multi-workspace budgeting in README` |
@@ -107,7 +108,7 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 - [ ] D8 — Currency defaults.
 - [ ] D9 — Offline behavior.
 - [ ] D10 — License.
-- [ ] D11 — CI host.
+- [x] D11 — GitHub Actions for `menyebarluaskan/budget-agent`; `make check` is the local and CI gate.
 - [ ] D12 — Recommendation engine.
 - [ ] D13 — Receipt privacy.
 
@@ -120,3 +121,4 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 | 2026-11-02 | D1/D3/D4 approved; D5/D7 deferred; D2 options expanded; D6 moved to miniPC. |
 | 2026-11-02 | D2 approved as multi-workspace; miniPC details confirmed; tailnet hostname proposed. |
 | 2026-11-02 | T-005 approved; T-007 scaffolded the Go API, SvelteKit UI, and Makefile quality gates. |
+| 2026-11-02 | D11 resolved and T-008 added the GitHub Actions CI quality gate. |

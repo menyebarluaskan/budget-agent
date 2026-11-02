@@ -86,7 +86,7 @@ The full rationale, data model, API surface, security rules, and decisions are i
 
 | Milestone | Status |
 | --- | --- |
-| M0 — Specification and foundations | In progress: spec approved, repository scaffolded |
+| M0 — Specification and foundations | In progress: CI configured; license decision pending (D10) |
 | M1 — Backend core | Not started |
 | M2 — Web frontend | Not started |
 | M3 — AI, MCP, WhatsApp | Not started |
@@ -126,7 +126,8 @@ make check
 ```
 
 This runs Go formatting and vetting, frontend format/lint checks, the SvelteKit
-type check, both unit-test suites, and the production frontend build.
+type check, both unit-test suites, and the production frontend build. GitHub
+Actions runs the same `make check` gate on pushes to `main` and pull requests.
 
 Use `make build` to produce `bin/budget-agent`. The frontend build currently
 lives in `web/build`; embedding it into the Go binary lands with the deployment

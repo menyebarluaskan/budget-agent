@@ -715,8 +715,8 @@ off unless WhatsApp is enabled and the risk is accepted.
 - Critical paths target meaningful coverage, not a vanity percentage.
 - Golden fixtures cover budget math and representative receipt OCR output.
 - Tests must not call real AI or WhatsApp APIs; use fakes and recorded fixtures.
-- CI runs formatting, static analysis, unit tests, the frontend build, and the
-  container build.
+- CI runs formatting, static analysis, unit tests, and the frontend build. The
+  container build gate is added with T-401.
 
 ## 14. Performance budgets
 
@@ -768,12 +768,12 @@ Each milestone ends with a runnable, tested increment and an updated `TASKS.md`.
 | **D8** | Currency | IDR as the default display currency; one currency per account; one reporting currency | M1 |
 | **D9** | Offline behavior | Read-only PWA cache only; no offline writes | M2 |
 | **D10** | License | MIT if the repository is public; otherwise private/unlicensed | M0 |
-| **D11** | CI host | GitHub Actions if the repo is on GitHub; otherwise a local `make check` first | M0 |
+| **D11** | CI host | **GitHub Actions** for `menyebarluaskan/budget-agent`. `make check` remains the single local and CI entry point. | M0 |
 | **D12** | Recommendations | Deterministic rules in v1; an LLM explanation can come later | M1 |
 | **D13** | Receipt privacy | Do not send receipt images to an AI provider unless AI is enabled and the user confirms | M3 |
 
-**Status:** D1–D6 are resolved. D5 and D7 are deferred. D8–D13 can be settled
-before their milestone. Only the final specification approval remains.
+**Status:** D1–D6 and D11 are resolved. D5 and D7 are deferred. D8–D10 and
+D12–D13 can be settled before their milestone. The specification is approved.
 
 ### 16.3 User model: shared vs separate budgets
 
