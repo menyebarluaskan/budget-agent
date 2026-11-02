@@ -767,13 +767,14 @@ Each milestone ends with a runnable, tested increment and an updated `TASKS.md`.
 | --- | --- | --- | --- |
 | **D8** | Currency | IDR as the default display currency; one currency per account; one reporting currency | M1 |
 | **D9** | Offline behavior | Read-only PWA cache only; no offline writes | M2 |
-| **D10** | License | MIT if the repository is public; otherwise private/unlicensed | M0 |
+| **D10** | License | **MIT** (`LICENSE`). | M0 |
 | **D11** | CI host | **GitHub Actions** for `menyebarluaskan/budget-agent`. `make check` remains the single local and CI entry point. | M0 |
 | **D12** | Recommendations | Deterministic rules in v1; an LLM explanation can come later | M1 |
 | **D13** | Receipt privacy | Do not send receipt images to an AI provider unless AI is enabled and the user confirms | M3 |
 
-**Status:** D1–D6 and D11 are resolved. D5 and D7 are deferred. D8–D10 and
-D12–D13 can be settled before their milestone. The specification is approved.
+**Status:** D1–D6, D10, and D11 are resolved. D5 and D7 are deferred. D8, D9,
+D12, and D13 can be settled before their milestone. The specification is
+approved.
 
 ### 16.3 User model: shared vs separate budgets
 

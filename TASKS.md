@@ -23,9 +23,8 @@ Live progress tracker for **Integrated Personal Budget**.
 
 ## Current phase
 
-**Phase 1 — Foundation.** Specification, scaffolding, and CI are in place. The
-D10 license decision is the remaining foundation item. No feature milestone has
-started; backend core is next.
+**Phase 2 — Backend core.** Foundation is complete. M1 starts with the
+workspace-scoped database and migrations (`T-101`).
 
 ## Milestone 0 — Project foundations
 
@@ -107,7 +106,7 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 
 - [ ] D8 — Currency defaults.
 - [ ] D9 — Offline behavior.
-- [ ] D10 — License.
+- [x] D10 — MIT License.
 - [x] D11 — GitHub Actions for `menyebarluaskan/budget-agent`; `make check` is the local and CI gate.
 - [ ] D12 — Recommendation engine.
 - [ ] D13 — Receipt privacy.
@@ -122,3 +121,4 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 | 2026-11-02 | D2 approved as multi-workspace; miniPC details confirmed; tailnet hostname proposed. |
 | 2026-11-02 | T-005 approved; T-007 scaffolded the Go API, SvelteKit UI, and Makefile quality gates. |
 | 2026-11-02 | D11 resolved and T-008 added the GitHub Actions CI quality gate. |
+| 2026-11-02 | D10 resolved as MIT; M0 foundation complete. |

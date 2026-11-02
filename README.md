@@ -86,7 +86,7 @@ The full rationale, data model, API surface, security rules, and decisions are i
 
 | Milestone | Status |
 | --- | --- |
-| M0 — Specification and foundations | In progress: CI configured; license decision pending (D10) |
+| M0 — Specification and foundations | Complete: spec approved, scaffolded, CI green, MIT licensed |
 | M1 — Backend core | Not started |
 | M2 — Web frontend | Not started |
 | M3 — AI, MCP, WhatsApp | Not started |
@@ -144,4 +144,4 @@ milestone.
 
 ## License
 
-Not decided yet. See the open decisions in the technical spec.
+MIT. See [`LICENSE`](LICENSE).
