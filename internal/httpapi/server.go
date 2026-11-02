@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"budget-agent/internal/accounts"
+	"budget-agent/internal/tags"
 )
 
 const readinessTimeout = 2 * time.Second
@@ -48,8 +49,10 @@ func New(opts Options) http.Handler {
 		writeJSON(w, http.StatusOK, statusResponse{Status: "ready"})
 	})
 	if opts.DB != nil {
-		svc := accounts.NewService(opts.DB)
-		registerAccountRoutes(mux, svc)
+		asvc := accounts.NewService(opts.DB)
+		registerAccountRoutes(mux, asvc)
+		tsvc := tags.NewService(opts.DB)
+		registerTagRoutes(mux, tsvc)
 	}
 	return withMiddleware(logger, mux)
 }
@@ -135,6 +138,81 @@ func registerAccountRoutes(mux *http.ServeMux, svc *accounts.Service) {
 		ws := workspaceID(r)
 		if err := svc.Delete(r.Context(), ws, r.PathValue("id")); err != nil {
 			if err == accounts.ErrNotFound {
+				writeError(w, http.StatusNotFound, "not found")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+}
+
+func registerTagRoutes(mux *http.ServeMux, svc *tags.Service) {
+	mux.HandleFunc("GET /api/v1/tags", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		list, err := svc.List(r.Context(), ws)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"tags": list})
+	})
+	mux.HandleFunc("POST /api/v1/tags", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Name  string `json:"name"`
+			Color string `json:"color"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+		ws := workspaceID(r)
+		t, err := svc.Create(r.Context(), tags.CreateInput{WorkspaceID: ws, Name: body.Name, Color: body.Color})
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, t)
+	})
+	mux.HandleFunc("GET /api/v1/tags/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		t, err := svc.Get(r.Context(), ws, r.PathValue("id"))
+		if err != nil {
+			if err == tags.ErrNotFound {
+				writeError(w, http.StatusNotFound, "not found")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, t)
+	})
+	mux.HandleFunc("PATCH /api/v1/tags/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		var body struct {
+			Name  *string `json:"name"`
+			Color *string `json:"color"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+		t, err := svc.Update(r.Context(), ws, r.PathValue("id"), tags.UpdateInput{Name: body.Name, Color: body.Color})
+		if err != nil {
+			if err == tags.ErrNotFound {
+				writeError(w, http.StatusNotFound, "not found")
+				return
+			}
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, t)
+	})
+	mux.HandleFunc("DELETE /api/v1/tags/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		if err := svc.Delete(r.Context(), ws, r.PathValue("id")); err != nil {
+			if err == tags.ErrNotFound {
 				writeError(w, http.StatusNotFound, "not found")
 				return
 			}
