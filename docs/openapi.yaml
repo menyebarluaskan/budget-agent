@@ -1,0 +1,629 @@
+openapi: 3.0.1
+info:
+  title: Integrated Personal Budget API
+  description: Self-hosted personal budgeting system API
+  version: "1.0.0"
+  contact:
+    name: Budget Agent
+    email: maintainer@example.com
+servers:
+  - url: http://127.0.0.1:8080
+    description: Local development server
+paths:
+  /api/v1/healthz:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+  /api/v1/readyz:
+    get:
+      summary: Readiness check
+      responses:
+        "200":
+          description: Ready
+        "503":
+          description: Not ready
+
+  /api/v1/accounts:
+    get:
+      summary: List accounts
+      parameters:
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of accounts
+    post:
+      summary: Create account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/CreateAccountInput"
+      responses:
+        "201":
+          description: Account created
+        "400":
+          description: Bad request
+  /api/v1/accounts/{id}:
+    get:
+      summary: Get account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Account details
+        "404":
+          description: Not found
+    patch:
+      summary: Update account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/UpdateAccountInput"
+      responses:
+        "200":
+          description: Updated account
+        "404":
+          description: Not found
+        "400":
+          description: Bad request
+  /api/v1/accounts/{id}/balance:
+    get:
+      summary: Get account balance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Account balance in minor units
+  /api/v1/tags:
+    get:
+      summary: List tags
+      parameters:
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of tags
+    post:
+      summary: Create tag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/CreateTagInput"
+      responses:
+        "201":
+          description: Tag created
+        "400":
+          description: Bad request
+  /api/v1/transactions:
+    get:
+      summary: List transactions
+      parameters:
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: account_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: tag_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of transactions
+    post:
+      summary: Create transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/CreateTransactionInput"
+      responses:
+        "201":
+          description: Transaction created
+        "400":
+          description: Bad request
+  /api/v1/transactions/{id}:
+    get:
+      summary: Get transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transaction details
+        "404":
+          description: Not found
+    patch:
+      summary: Update transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/UpdateTransactionInput"
+      responses:
+        "200":
+          description: Updated transaction
+        "404":
+          description: Not found
+        "400":
+          description: Bad request
+    delete:
+      summary: Delete transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No content
+        "404":
+          description: Not found
+  /api/v1/budgets:
+    get:
+      summary: List budgets
+      parameters:
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of budgets
+    post:
+      summary: Create budget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/CreateBudgetInput"
+      responses:
+        "201":
+          description: Budget created
+        "400":
+          description: Bad request
+  /api/v1/budgets/{id}:
+    get:
+      summary: Get budget
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Budget details
+        "404":
+          description: Not found
+    patch:
+      summary: Update budget
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/UpdateBudgetInput"
+      responses:
+        "200":
+          description: Updated budget
+        "404":
+          description: Not found
+        "400":
+          description: Bad request
+  /api/v1/budgets/{id}/summary:
+    get:
+      summary: Get budget tag-based summary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: tag_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Budget summary per tag
+  /api/v1/spending/summary:
+    get:
+      summary: Get spending summary
+      parameters:
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Spending summary
+  /api/v1/spending/tag-summary:
+    get:
+      summary: Get spending per tag
+      parameters:
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Spending per tag
+  /api/v1/recommendations:
+    get:
+      summary: Get budget recommendations
+      parameters:
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Recommendations for budget management
+components:
+  schemas:
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+        workspace_id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        currency:
+          type: string
+        opening_balance_minor:
+          type: integer
+        archived:
+          type: boolean
+        created_at:
+          type: string
+        updated_at:
+          type: string
+        balance_minor:
+          type: integer
+    CreateAccountInput:
+      type: object
+      required:
+        - name
+        - type
+        - currency
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - wallet
+            - savings
+            - credit
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        opening_balance_minor:
+          type: integer
+          minimum: 0
+    UpdateAccountInput:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - wallet
+            - savings
+            - credit
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+    Tag:
+      type: object
+      properties:
+        id:
+          type: string
+        workspace_id:
+          type: string
+        name:
+          type: string
+        color:
+          type: string
+        created_at:
+          type: string
+    CreateTagInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    UpdateTagInput:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        workspace_id:
+          type: string
+        account_id:
+          type: string
+        amount_minor:
+          type: integer
+        occurred_at:
+          type: string
+          format: date-time
+        description:
+          type: string
+        notes:
+          type: string
+        source:
+          type: string
+          enum:
+            - manual
+            - whatsapp
+            - receipt
+        tag_ids:
+          type: array
+          items:
+            type: string
+    UpdateTransactionInput:
+      type: object
+      properties:
+        amount_minor:
+          type: integer
+        occurred_at:
+          type: string
+          format: date-time
+        description:
+          type: string
+        notes:
+          type: string
+        tag_ids:
+          type: array
+          items:
+            type: string
+    Budget:
+      type: object
+      properties:
+        id:
+          type: string
+        workspace_id:
+          type: string
+        name:
+          type: string
+        amount_minor:
+          type: integer
+        period:
+          type: string
+          enum:
+            - weekly
+            - monthly
+        start_date:
+          type: string
+        end_date:
+          type: string
+        rollover:
+          type: boolean
+        account_id:
+          type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+    CreateBudgetInput:
+      type: object
+      required:
+        - name
+        - amount_minor
+        - period
+      properties:
+        name:
+          type: string
+        amount_minor:
+          type: integer
+          minimum: 1
+        period:
+          type: string
+          enum:
+            - weekly
+            - monthly
+        start_date:
+          type: string
+        end_date:
+          type: string
+        rollover:
+          type: boolean
+        account_id:
+          type: string
+    UpdateBudgetInput:
+      type: object
+      properties:
+        name:
+          type: string
+        amount_minor:
+          type: integer
+        period:
+          type: string
+          enum:
+            - weekly
+            - monthly
+        start_date:
+          type: string
+        end_date:
+          type: string
+        rollover:
+          type: boolean
+        account_id:
+          type: string
+    BudgetSummary:
+      type: object
+      properties:
+        tag_id:
+          type: string
+        tag_name:
+          type: string
+        color:
+          type: string
+        spent_minor:
+          type: integer
+    SpendingSummary:
+      type: object
+      properties:
+        total_spent_minor:
+          type: integer
+        transactions:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              amount_minor:
+                type: integer
+                description:
+                  type: string
+    SpendingTagSummary:
+      type: object
+      properties:
+        tag_spending:
+          type: object
+          additionalProperties:
+            type: integer
+    Recommendation:
+      type: object
+      properties:
+        over_budget_tags:
+          type: array
+          items:
+            type: string
+        budget_remaining:
+          type: object
+          additionalProperties:
+            type: integer

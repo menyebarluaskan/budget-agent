@@ -52,7 +52,7 @@ workspace-scoped database and migrations (`T-101`).
 | T-104 | Transaction CRUD with tags, signed amounts, and filtering | `[x]` | `feat(transactions): add transaction CRUD with tags and filtering` |
 | T-105 | Budget CRUD and tag-based budget summaries | `[x]` | `feat(budgets): add budget CRUD and tag-based summaries` |
 | T-106 | Spending summary and recommendation endpoints | `[x]` | `feat(spending): add spending summaries and recommendation endpoints` |
-| T-107 | OpenAPI contract and request/response validation | `[ ]` | — |
+| T-107 | OpenAPI contract and request/response validation | `[x]` | `docs: add OpenAPI 3.0.1 specification` |
 | T-108 | Authentication (tailnet identity and bearer tokens), workspace mapping, and rate limiting | `[ ]` | — |
 
 ## Milestone 2 — Web frontend
