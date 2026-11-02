@@ -16,6 +16,7 @@ import (
 	_ "time/tzdata"
 
 	"budget-agent/internal/config"
+	"budget-agent/internal/db"
 	"budget-agent/internal/httpapi"
 )
 
@@ -39,10 +40,17 @@ func run() error {
 	}))
 	slog.SetDefault(logger)
 
-	// The database arrives with T-101. Until then the process is ready as soon
-	// as it can accept requests.
-	ready := func(context.Context) error { return nil }
+	database, err := db.Open(cfg.DatabasePath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer database.Close()
 
+	if err := db.Migrate(database); err != nil {
+		return fmt.Errorf("migrate database: %w", err)
+	}
+
+	ready := func(ctx context.Context) error { return database.PingContext(ctx) }
 	server := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           httpapi.New(httpapi.Options{Logger: logger, Ready: ready}),
