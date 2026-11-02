@@ -15,16 +15,19 @@ The product combines budgeting, transaction tracking, an AI assistant, receipt
 OCR, and a mobile-friendly web UI. See `README.md` for the product overview and
 `docs/TECH_SPEC.md` for the proposed architecture.
 
-## 2. Current phase: specification
+## 2. Current phase: implementation
 
-The project is **not yet approved for implementation**.
+The technical specification was approved on 2026-11-02. Implementation follows
+`TASKS.md` and the milestone order in the spec.
 
-- Do **not** scaffold, generate, or write application code until the technical
-  specification in `docs/TECH_SPEC.md` is explicitly approved by the maintainer.
-- Documentation, diagrams, and task planning are allowed in this phase.
-- When in doubt, stop and ask instead of assuming a stack decision.
+- Work only on the active task or a clearly scoped follow-up.
+- Do not start a later milestone without maintainer approval.
+- Do not introduce a stack or architecture change without updating the spec.
+- If a task needs a deferred decision, stop and ask.
+- Add tests with the code; scaffolding is the only exception.
 
-The approval gate is tracked in `TASKS.md` as `T-005`.
+The current approval gate is no longer T-005; it is the next unstarted task in
+`TASKS.md`.
 
 ## 3. Source of truth
 

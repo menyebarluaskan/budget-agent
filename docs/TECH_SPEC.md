@@ -1,7 +1,6 @@
 # Technical Specification — Integrated Personal Budget
 
-**Status:** Draft for maintainer review. **No implementation may start until this
-document is approved.** Approval is tracked as `T-005` in `TASKS.md`.
+**Status:** Approved for implementation on 2026-11-02. Work follows `TASKS.md`.
 
 **Date:** 2026-11-02
 
@@ -861,6 +860,6 @@ Approval means the maintainer accepts the architecture, stack, data model, API
 shape, security posture, and delivery plan, and resolves or explicitly defers
 the open decisions above.
 
-- [ ] Approved by: ____________________
-- [ ] Date: ____________________
-- [ ] Deferred decisions recorded in `TASKS.md`: ____________________
+- [x] Approved by: Maintainer (instruction to start scaffolding)
+- [x] Date: 2026-11-02
+- [x] Deferred decisions recorded in `TASKS.md`: D5, D7, D8–D13
