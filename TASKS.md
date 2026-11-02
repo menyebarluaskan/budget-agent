@@ -49,7 +49,7 @@ workspace-scoped database and migrations (`T-101`).
 | T-101 | Database connection, migrations, and workspace-scoped schema for users, workspaces, accounts, transactions, tags, and budgets | `[x]` | `feat(db): add SQLite connection, migrations, and workspace-scoped schema` |
 | T-102 | Account CRUD and balance calculation | `[x]` | `feat(accounts): complete account CRUD and balance calculation` |
 | T-103 | Tag CRUD | `[x]` | `feat(tags): add tag CRUD endpoints` |
-| T-104 | Transaction CRUD with tags, signed amounts, and filtering | `[ ]` | — |
+| T-104 | Transaction CRUD with tags, signed amounts, and filtering | `[x]` | `feat(transactions): add transaction CRUD with tags and filtering` |
 | T-105 | Budget CRUD and tag-based budget summaries | `[ ]` | — |
 | T-106 | Spending summary and recommendation endpoints | `[ ]` | — |
 | T-107 | OpenAPI contract and request/response validation | `[ ]` | — |

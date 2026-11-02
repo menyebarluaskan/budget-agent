@@ -11,6 +11,7 @@ import (
 
 	"budget-agent/internal/accounts"
 	"budget-agent/internal/tags"
+	"budget-agent/internal/transactions"
 )
 
 const readinessTimeout = 2 * time.Second
@@ -53,6 +54,8 @@ func New(opts Options) http.Handler {
 		registerAccountRoutes(mux, asvc)
 		tsvc := tags.NewService(opts.DB)
 		registerTagRoutes(mux, tsvc)
+		txsvc := transactions.NewService(opts.DB)
+		registerTransactionRoutes(mux, txsvc)
 	}
 	return withMiddleware(logger, mux)
 }
@@ -218,6 +221,66 @@ func registerTagRoutes(mux *http.ServeMux, svc *tags.Service) {
 			}
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+}
+
+func registerTransactionRoutes(mux *http.ServeMux, svc *transactions.Service) {
+	mux.HandleFunc("GET /api/v1/transactions", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		f := transactions.Filter{AccountID: r.URL.Query().Get("account_id"), TagID: r.URL.Query().Get("tag_id"), From: r.URL.Query().Get("from"), To: r.URL.Query().Get("to")}
+		list, err := svc.List(r.Context(), ws, f)
+		if err != nil { writeError(w, http.StatusInternalServerError, err.Error()); return }
+		writeJSON(w, http.StatusOK, map[string]any{"transactions": list})
+	})
+	mux.HandleFunc("POST /api/v1/transactions", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			AccountID   string   `json:"account_id"`
+			AmountMinor int64    `json:"amount_minor"`
+			OccurredAt  string   `json:"occurred_at"`
+			Description string   `json:"description"`
+			Notes       string   `json:"notes"`
+			Source      string   `json:"source"`
+			TagIDs      []string `json:"tag_ids"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil { writeError(w, http.StatusBadRequest, "invalid json"); return }
+		ws := workspaceID(r)
+		t, err := svc.Create(r.Context(), transactions.CreateInput{WorkspaceID: ws, AccountID: body.AccountID, AmountMinor: body.AmountMinor, OccurredAt: body.OccurredAt, Description: body.Description, Notes: body.Notes, Source: body.Source, TagIDs: body.TagIDs})
+		if err != nil { writeError(w, http.StatusBadRequest, err.Error()); return }
+		writeJSON(w, http.StatusCreated, t)
+	})
+	mux.HandleFunc("GET /api/v1/transactions/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		t, err := svc.Get(r.Context(), ws, r.PathValue("id"))
+		if err != nil {
+			if err == transactions.ErrNotFound { writeError(w, http.StatusNotFound, "not found"); return }
+			writeError(w, http.StatusInternalServerError, err.Error()); return
+		}
+		writeJSON(w, http.StatusOK, t)
+	})
+	mux.HandleFunc("PATCH /api/v1/transactions/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		var body struct {
+			AmountMinor *int64   `json:"amount_minor"`
+			OccurredAt  *string  `json:"occurred_at"`
+			Description *string  `json:"description"`
+			Notes       *string  `json:"notes"`
+			TagIDs      *[]string `json:"tag_ids"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil { writeError(w, http.StatusBadRequest, "invalid json"); return }
+		t, err := svc.Update(r.Context(), ws, r.PathValue("id"), transactions.UpdateInput{AmountMinor: body.AmountMinor, OccurredAt: body.OccurredAt, Description: body.Description, Notes: body.Notes, TagIDs: body.TagIDs})
+		if err != nil {
+			if err == transactions.ErrNotFound { writeError(w, http.StatusNotFound, "not found"); return }
+			writeError(w, http.StatusBadRequest, err.Error()); return
+		}
+		writeJSON(w, http.StatusOK, t)
+	})
+	mux.HandleFunc("DELETE /api/v1/transactions/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		if err := svc.Delete(r.Context(), ws, r.PathValue("id")); err != nil {
+			if err == transactions.ErrNotFound { writeError(w, http.StatusNotFound, "not found"); return }
+			writeError(w, http.StatusInternalServerError, err.Error()); return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
