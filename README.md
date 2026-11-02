@@ -48,27 +48,29 @@ Browser / MCP client / WhatsApp
               │
         Tailscale tailnet
               │
-   ┌──────────▼──────────┐
-   │ Kubernetes pod      │
-   │  Tailscale sidecar  │
-   │       ↓             │
-   │  App container      │
-   │  API + UI + MCP     │
-   │       ↓             │
-   │  PVC: SQLite + files│
-   └─────────────────────┘
+   ┌──────────▼───────────────────┐
+   │ Rootless Podman pod (Quadlet)│
+   │  Tailscale sidecar           │
+   │       ↓                      │
+   │  App container               │
+   │  API + UI + MCP              │
+   │       ↓                      │
+   │  Host dir: SQLite + receipts │
+   └──────────────────────────────┘
 ```
 
 - **Backend:** Go, standard-library HTTP, OpenAPI 3.1, SQLite.
 - **Frontend:** SvelteKit static build, embedded into the backend binary.
-- **Deployment:** one non-root container, a Tailscale sidecar, and a persistent
-  volume. No public ingress.
+- **Deployment:** one rootless Podman pod managed by systemd Quadlet, with a
+  Tailscale sidecar. Units are symlinked into
+  `~/.config/containers/systemd/`; no host ports, no public ingress, and no
+  Kubernetes.
 - **AI/chat:** provider-agnostic AI adapter, MCP over Streamable HTTP, WhatsApp
-  Cloud API.
+  Cloud API (optional and deferred until a public webhook is acceptable).
 
-The full rationale, data model, API surface, security rules, and open decisions
-are in [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md). **The stack is a proposal until
-the maintainer approves it.**
+The full rationale, data model, API surface, security rules, and decisions are in
+[`docs/TECH_SPEC.md`](docs/TECH_SPEC.md). **The stack is a proposal until the
+maintainer approves it.**
 
 ## Documentation
 

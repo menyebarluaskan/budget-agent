@@ -36,6 +36,7 @@ Live progress tracker for **Integrated Personal Budget**.
 | T-006 | Resolve the open decisions listed in the spec | `[!]` | — |
 | T-007 | Scaffold repository layout, toolchain, and `Makefile` | `[ ]` | — |
 | T-008 | Add CI pipeline and baseline quality gates | `[ ]` | — |
+| T-009 | Revise deployment from Kubernetes to rootless Podman Quadlet with symlinked units | `[x]` | `docs(deploy): replace Kubernetes with rootless Podman Quadlet` |
 
 ## Milestone 1 — Backend core
 
@@ -76,28 +77,39 @@ Live progress tracker for **Integrated Personal Budget**.
 | ID | Task | Status | Commit |
 | --- | --- | --- | --- |
 | T-401 | Multi-stage container image with embedded frontend | `[ ]` | — |
-| T-402 | Kubernetes manifests with PVC, probes, resource limits, and hardening | `[ ]` | — |
-| T-403 | Tailscale sidecar and tailnet-only service exposure | `[ ]` | — |
+| T-402 | Quadlet pod and container units with rootless config, data mounts, health checks, and hardening | `[ ]` | — |
+| T-403 | Tailscale sidecar via Quadlet and tailnet-only Serve exposure | `[ ]` | — |
 | T-404 | Backup and restore procedure for SQLite | `[ ]` | — |
-| T-405 | Operational runbook, health checks, and structured logging | `[ ]` | — |
+| T-405 | Operational runbook, health checks, journald logging, and upgrade/rollback steps | `[ ]` | — |
+| T-406 | Install docs for symlinking units into `~/.config/containers/systemd`, lingering, start, and uninstall | `[ ]` | — |
 
 ## Open decisions blocking T-006
 
-These are recorded in `docs/TECH_SPEC.md` and need maintainer input:
+These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16. The recommended defaults
+are in the spec; reply `accept D1–D7 defaults` to unblock scaffolding.
 
-- [ ] Approve the proposed stack (Go + SQLite + SvelteKit).
-- [ ] Single user or multi-user household?
-- [ ] One currency per account, or a fixed single currency?
-- [ ] Auth model: tailnet identity only, API token, passphrase login, or a mix?
-- [ ] AI provider: OpenAI-compatible, Anthropic, local model, or pluggable without a default?
-- [ ] Is a WhatsApp Cloud API account available, or should the bot be deferred?
-- [ ] Kubernetes is the only deployment target?
-- [ ] Offline writes required, or is offline read-only enough?
-- [ ] Backup target and retention expectations?
-- [ ] License for the repository?
+**Blocking (D1–D7):**
+
+- [ ] D1 — Approve the stack (Go + SQLite + SvelteKit + rootless Quadlet).
+- [ ] D2 — Single user or household? Recommended: single user for v1.
+- [ ] D3 — Auth model. Recommended: tailnet identity + hashed API tokens.
+- [ ] D4 — AI provider. Recommended: pluggable OpenAI-compatible adapter.
+- [ ] D5 — WhatsApp scope. Recommended: defer until a Cloud API account exists.
+- [ ] D6 — Deployment host/user/paths. Confirmed rootless Quadlet and symlink install; confirm details.
+- [ ] D7 — Backup destination and retention.
+
+**Later (D8–D13):**
+
+- [ ] D8 — Currency defaults.
+- [ ] D9 — Offline behavior.
+- [ ] D10 — License.
+- [ ] D11 — CI host.
+- [ ] D12 — Recommendation engine.
+- [ ] D13 — Receipt privacy.
 
 ## Changelog
 
 | Date | Change |
 | --- | --- |
 | 2026-11-02 | Initial task list; specification phase opened. |
+| 2026-11-02 | Deployment revised to rootless Podman Quadlet; decisions prioritized. |

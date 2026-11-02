@@ -13,8 +13,8 @@ document is approved.** Approval is tracked as `T-005` in `TASKS.md`.
 
 Build a self-hosted, low-resource personal budgeting system that:
 
-1. Runs as a single Kubernetes pod with a Tailscale sidecar and no public
-   ingress.
+1. Runs as a rootless Podman pod managed by systemd Quadlet, with a Tailscale
+   sidecar and no published host ports.
 2. Exposes a stable HTTP API for every operation the UI and agents can perform.
 3. Tracks accounts, signed transactions, tags, and tag-based budgets.
 4. Provides a mobile-first web UI with a dashboard, filters, charts, and simple
@@ -38,12 +38,13 @@ Build a self-hosted, low-resource personal budgeting system that:
 | Constraint | Assumption |
 | --- | --- |
 | Users | One person or one household. A small number of named users is acceptable. |
-| Deployment | Single Kubernetes cluster, one application replica. |
-| Network | Reachable only over a Tailscale tailnet. No public Ingress. |
+| Deployment | One rootless Podman pod, managed by user-level systemd Quadlet units. |
+| Host | Linux with cgroup v2, Podman 5.x, systemd user services, and SELinux-aware mounts. |
+| Network | Reachable only over a Tailscale tailnet. No published host ports and no public ingress. |
 | Data volume | Under ~100k transactions and ~10 GB of receipt images over several years. |
 | Currency | One currency per account; a single reporting currency for summaries. |
 | Availability | Personal-use availability. Brief restarts during upgrades are acceptable. |
-| Backups | The persistent volume is backed up off-cluster on a schedule. |
+| Backups | The host data directory is backed up off-host on a schedule. |
 | Locale | Default timezone and currency are configurable; dates stored in UTC. |
 
 ## 3. Architecture
@@ -55,14 +56,14 @@ Build a self-hosted, low-resource personal budgeting system that:
   WhatsApp Cloud API ──┐ │
                        │ │
               ┌────────▼─▼──────────────────────────────┐
-              │ Kubernetes Pod                          │
+              │ Rootless Podman pod (systemd Quadlet)   │
               │                                         │
               │  ┌───────────────────────┐              │
               │  │ Tailscale sidecar     │              │
               │  │ userspace + Serve     │              │
               │  │ :443 → 127.0.0.1:8080 │              │
               │  └──────────┬────────────┘              │
-              │             │ localhost                 │
+              │             │ localhost (shared pod)    │
               │  ┌──────────▼────────────────────────┐  │
               │  │ Application container             │  │
               │  │ - REST API /api/v1                │  │
@@ -73,10 +74,12 @@ Build a self-hosted, low-resource personal budgeting system that:
               │  └──────────┬────────────────────────┘  │
               │             │                           │
               │  ┌──────────▼────────────────────────┐  │
-              │  │ PVC /data                         │  │
-              │  │ budget.db (SQLite, WAL)           │  │
-              │  │ receipts/                         │  │
-              │  │ backups/                          │  │
+              │  │ Host data directory               │  │
+              │  │ ~/.local/share/budget-agent/      │  │
+              │  │ data/budget.db (SQLite, WAL)      │  │
+              │  │ data/receipts/                    │  │
+              │  │ data/backups/                     │  │
+              │  │ tailscale/                        │  │
               │  └───────────────────────────────────┘  │
               └─────────────────────────────────────────┘
 ```
@@ -86,10 +89,11 @@ Key decisions:
 - **One binary serves everything.** The UI is compiled to static assets and
   embedded into the Go binary with `go:embed`. No separate web server.
 - **Loopback binding.** The app listens on `127.0.0.1:8080`; the Tailscale
-  sidecar terminates TLS and proxies to it. The app is not exposed on the pod IP
-  or via a public Service.
+  sidecar terminates TLS and proxies to it. No host ports are published, so the
+  app is reachable only through the tailnet.
 - **SQLite is the system of record.** WAL mode, one writer, foreign keys on,
-  busy timeout configured. A PVC holds the database and receipt files.
+  busy timeout configured. Host bind mounts hold the database, receipts, and
+  Tailscale state.
 - **Background work is in-process.** OCR and AI calls run in a small worker with
   a persisted job table so restarts do not lose work. No external queue.
 - **The API is the product boundary.** UI, MCP, WhatsApp, and future clients use
@@ -112,9 +116,9 @@ Key decisions:
 | MCP | Official **Go SDK** (`modelcontextprotocol/go-sdk`) | Same process and auth model as the API. |
 | AI provider | Provider-agnostic interface; OpenAI-compatible HTTP first | Works with hosted APIs and local models (Ollama, LM Studio, vLLM). |
 | WhatsApp | **Meta WhatsApp Cloud API** | Official webhook and messaging API; no unofficial bridge. |
-| Packaging | Multi-stage Docker build to `gcr.io/distroless/static` | Small, non-root, no shell. |
-| Orchestration | Kubernetes manifests managed with **Kustomize** | One small app; Helm is unnecessary overhead. |
-| Local dev | Docker Compose for app + optional fake WhatsApp webhook | Reproducible without a cluster. |
+| Packaging | Multi-stage **Containerfile** built with Podman/Buildah to `gcr.io/distroless/static` | Small, non-root, no shell. |
+| Orchestration | **Rootless Podman Quadlet** units linked into `~/.config/containers/systemd/` | Boot integration through systemd user services without a cluster. |
+| Local dev | Native Go/Node toolchains; optional `podman compose` for a container smoke test | Fast iteration without a VM or cluster. |
 | CI | Platform-agnostic steps; GitHub Actions if hosted on GitHub | Keep build/test/lint identical locally and in CI. |
 
 ### Versions and dependency policy
@@ -132,10 +136,12 @@ Key decisions:
 | TypeScript/Node backend | Higher idle memory and a larger runtime image; shared language with the UI is not worth the footprint. |
 | Rust backend | Excellent runtime profile, but slower iteration and a smaller contributor pool for this project. |
 | Python/FastAPI | Simple to prototype, but packaging, memory, and image size are worse for a long-lived small service. |
-| PostgreSQL | Operationally heavier: another pod, PVC, backups, and credentials. SQLite fits the single-user, single-writer constraint. |
+| PostgreSQL | Operationally heavier: another service, volume, backups, and credentials. SQLite fits the single-user, single-writer constraint. |
 | React/Next.js | Larger bundles and a heavier build/runtime story. SvelteKit's static output is a better fit. |
 | htmx + server templates | Very small, but charts, PWA behavior, and interactive simulations would need more custom JavaScript. |
 | GraphQL/tRPC | Adds concepts and tooling without a clear benefit for a small, well-defined REST surface. |
+| Kubernetes | Adds a cluster, API server, manifests, and networking overhead for a single-host personal app. Quadlet already provides boot and restart behavior. |
+| Docker Compose | Fine for development, but it lacks systemd boot integration and Quadlet's unit-level lifecycle management. |
 | Unofficial WhatsApp bridge | Account-ban risk and no supported webhook contract. The official Cloud API is preferred. |
 
 ## 5. Data model
@@ -454,7 +460,7 @@ type Provider interface {
 | `TOKEN_PEPPER` | Yes | Server-side pepper for token hashing |
 | `AI_ENABLED` | No | Feature flag, default `false` |
 | `AI_BASE_URL` | No | OpenAI-compatible endpoint |
-| `AI_API_KEY` | No | Provider key; Kubernetes Secret |
+| `AI_API_KEY` | No | Provider key; Podman secret or `0600` environment file |
 | `AI_MODEL` | No | Text model |
 | `AI_VISION_MODEL` | No | Vision model |
 | `WHATSAPP_ENABLED` | No | Feature flag, default `false` |
@@ -467,11 +473,16 @@ type Provider interface {
 | `TZ` | No | Display timezone, default `UTC` |
 | `LOG_LEVEL` | No | `info` (default), `debug`, `warn`, `error` |
 
-Secrets come from Kubernetes Secrets. A committed `.env.example` contains only
+Secrets come from a `0600` environment file outside the repository or from
+Podman secrets. A committed `budget-agent.env.example` contains only
 placeholders. Configuration is validated at startup; the process exits with a
 clear error rather than running half-configured.
 
-## 10. Deployment
+## 10. Deployment — rootless Podman Quadlet
+
+The only supported production target is a rootless Podman pod managed by
+systemd user services. There is no Kubernetes, Helm, Kustomize, or cluster
+dependency.
 
 ### 10.1 Image
 
@@ -480,67 +491,180 @@ clear error rather than running half-configured.
   embedding the static output.
 - Stage 3: `gcr.io/distroless/static:nonroot`, copy the binary and CA
   certificates. Final image target: under 60 MB.
-- Run as a non-root user, read-only root filesystem, writable `/data` only,
-  `tmpfs` at `/tmp`, and no shell.
+- Build with `podman build` from a `Containerfile`. Tag with an immutable version
+  (for example, the git SHA) and optionally push to a private registry.
+- Run as the image's non-root user (UID 65532), read-only root filesystem,
+  writable `/data` only, `tmpfs` at `/tmp`, and no shell.
 
-### 10.2 Kubernetes
+### 10.2 Quadlet units
 
-- One `Deployment` with `replicas: 1` and `strategy: Recreate` (SQLite and the
-  PVC cannot be shared safely).
-- `PersistentVolumeClaim` mounted at `/data`.
-- `Service` of type `ClusterIP` only; no Ingress and no LoadBalancer.
-- Resource requests/limits: `32Mi/128Mi` memory and `50m/500m` CPU as a starting
-  point, tuned after measuring. Hard memory limit plus Go `GOMEMLIMIT` set below
-  it.
-- Probes: `GET /healthz` and `GET /readyz` on the loopback address.
-- `securityContext`: non-root, no privilege escalation, all capabilities
-  dropped, `seccompProfile: RuntimeDefault`.
-- `NetworkPolicy`: deny ingress except from the Tailscale sidecar where the
-  cluster CNI supports it; all egress allowed only as needed for AI, WhatsApp,
-  and DNS.
+The repository ships units under `deploy/quadlet/`:
 
-### 10.3 Tailscale sidecar
+| File | Purpose |
+| --- | --- |
+| `budget-agent.pod` | Creates the pod. No `PublishPort`; the tailnet is the only entrance. |
+| `budget-agent.container` | App container: image, pod membership, data mount, env file, health check, hardening. |
+| `tailscale.container` | Tailscale sidecar in userspace mode with a Serve config. |
+| `serve.json` | Tailscale Serve mapping: `https://<host>.<tailnet>.ts.net` → `http://127.0.0.1:8080`. Funnel disabled by default. |
+| `budget-agent.env.example` | Placeholder configuration; the real file lives outside the repo at `~/.config/budget-agent/budget-agent.env` with mode `0600`. |
+| `README.md` | Install, upgrade, debug, and uninstall commands. |
 
-- Image: `tailscale/tailscale` pinned to a specific version.
-- `TS_USERSPACE=true` avoids `NET_ADMIN` and a TUN device. A Serve config
-  terminates TLS and proxies `https://<host>.<tailnet>.ts.net` to
-  `http://127.0.0.1:8080`.
-- State directory on the PVC (`/data/tailscale`) so the node identity survives
-  restarts. `TS_AUTHKEY` comes from a Secret; prefer a tagged, reusable auth key
-  with key expiry disabled per Tailscale guidance.
-- The app container shares the pod network namespace, so loopback works across
-  containers.
-- If userspace Serve proves problematic, fall back to kernel networking with
-  `NET_ADMIN`; record the change in this section before merging.
-- Tailnet ACLs restrict who can reach the service. MagicDNS provides the stable
-  hostname.
+Key unit settings:
 
-### 10.4 Backups
+- App container: `Pod=budget-agent.pod`, `User=65532`,
+  `UserNS=keep-id:uid=65532,gid=65532`, `ReadOnly=true`, `Tmpfs=/tmp`,
+  `NoNewPrivileges=true`, `DropCapability=ALL`, and
+  `Volume=%h/.local/share/budget-agent/data:/data:Z`.
+- Health: `HealthCmd=/budget-agent healthcheck`, `HealthInterval=30s`,
+  `HealthOnFailure=kill`, plus `Restart=on-failure` in `[Service]`.
+- Tailscale: `TS_USERSPACE=true`, `TS_STATE_DIR=/var/lib/tailscale`,
+  `TS_SERVE_CONFIG=/etc/tailscale/serve.json`, and a state bind mount at
+  `%h/.local/share/budget-agent/tailscale:/var/lib/tailscale:Z`.
+- Tailscale never uses `NET_ADMIN`, `/dev/net/tun`, or a public host port in the
+  default design.
+- Both containers join `budget-agent.pod`, so `127.0.0.1` is shared between them.
+- Each unit has `[Install] WantedBy=default.target`. Quadlet applies this section
+  during generation; `systemctl --user enable` is neither needed nor possible for
+  generated units.
+- `TimeoutStartSec` is raised to allow for the first image pull.
 
-- Nightly job: `VACUUM INTO '/data/backups/budget-YYYYMMDD.db'`, then copy
-  off-cluster with restic/rclone.
+### 10.3 Installation
+
+Linking the units into the user Quadlet directory is the installation method:
+
+```bash
+mkdir -p ~/.config/containers/systemd \
+  ~/.local/share/budget-agent/data/receipts \
+  ~/.local/share/budget-agent/data/backups \
+  ~/.local/share/budget-agent/tailscale \
+  ~/.config/budget-agent
+
+cp deploy/quadlet/budget-agent.env.example \
+  ~/.config/budget-agent/budget-agent.env
+chmod 600 ~/.config/budget-agent/budget-agent.env
+# Fill in secrets and BASE_URL, then:
+ln -sf "$PWD/deploy/quadlet/budget-agent.pod" \
+  ~/.config/containers/systemd/
+ln -sf "$PWD/deploy/quadlet/budget-agent.container" \
+  ~/.config/containers/systemd/
+ln -sf "$PWD/deploy/quadlet/tailscale.container" \
+  ~/.config/containers/systemd/
+
+systemctl --user daemon-reload
+loginctl enable-linger "$USER"
+systemctl --user start budget-agent-pod.service
+```
+
+Verify and operate:
+
+```bash
+systemctl --user list-unit-files 'budget-agent*' 'tailscale*'
+systemctl --user status budget-agent-pod.service \
+  budget-agent.service tailscale.service
+journalctl --user -u budget-agent.service -u tailscale.service -f
+podman pod ps
+```
+
+- Starting the pod starts its containers because `StartWithPod` defaults to true.
+  Start individual units only when debugging.
+- `loginctl enable-linger "$USER"` is required for the services to run at boot
+  without an interactive login. With `[Install] WantedBy=default.target`, they
+  start with the user's default target.
+- If the generated units are missing, run the generator in dry-run mode:
+  `/usr/lib/systemd/system-generators/podman-system-generator --user --dryrun`
+  or `systemd-analyze --user --generators=true verify budget-agent.service`.
+- Prerequisites: cgroup v2 (`podman info --format '{{.Host.CgroupsVersion}}'`),
+  user `subuid`/`subgid` entries, and Podman 5.x or newer.
+
+### 10.4 Rootless and SELinux notes
+
+- Rootless Podman maps container UIDs into the user's subordinate ID range. The
+  `keep-id` mapping keeps the app's non-root UID mapped to the host user so the
+  bind-mounted data directory is writable without `chmod 777`.
+- On SELinux-enforcing hosts, bind mounts use `:Z`. The data and Tailscale state
+  directories are owned by the deployment user.
+- Rootless containers cannot bind host ports below 1024. The design avoids this
+  entirely: no host ports are published, and Tailscale Serve owns the tailnet
+  listener inside the sidecar.
+- The app binds only to `127.0.0.1` inside the shared pod network namespace.
+
+### 10.5 Data layout
+
+```text
+~/.local/share/budget-agent/
+  data/
+    budget.db
+    budget.db-wal
+    budget.db-shm
+    receipts/
+    backups/
+  tailscale/          # Tailscale node state; keep across restarts
+
+~/.config/budget-agent/
+  budget-agent.env    # mode 0600, secrets and configuration
+  serve.json          # Tailscale Serve mapping
+```
+
+These directories are the backup and restore unit. The Tailscale state directory
+is included so the node identity survives reinstalls, although it can be
+recreated by re-authenticating.
+
+### 10.6 Public webhook exception
+
+The WhatsApp Cloud API cannot call a tailnet-only URL. The default deployment
+therefore keeps WhatsApp disabled. If WhatsApp is enabled, the operator must
+choose one of these explicitly:
+
+1. **Defer WhatsApp** until a public webhook path is acceptable. Recommended for
+   v1.
+2. **Tailscale Funnel with a narrow path**, exposing only
+   `GET/POST /webhooks/whatsapp` on a dedicated Funnel hostname. Signature
+   verification, body limits, rate limiting, and logging stay mandatory. The UI,
+   API, MCP endpoint, and metrics remain tailnet-only.
+3. **A small relay** on a public host that forwards only the webhook to the
+   tailnet.
+
+No option exposes the web UI or general API to the public internet. Funnel is
+off unless WhatsApp is enabled and the risk is accepted.
+
+### 10.7 Backups
+
+- Nightly systemd user timer runs `budget-agent backup --dest
+  ~/.local/share/budget-agent/data/backups`, which uses the SQLite backup API or
+  `VACUUM INTO`. Do not copy a live database plus WAL files.
+- A second step copies the backup directory and receipts off-host with
+  restic/rclone.
 - Keep 7 daily, 4 weekly, and 6 monthly snapshots (configurable).
-- Receipts are included in the same backup set.
 - Restore procedure is documented and tested before the first real data is
   entered. `T-404` owns this.
 
-### 10.5 Upgrades and migrations
+### 10.8 Upgrades and migrations
 
 - Migrations run at startup inside a transaction and are idempotent.
-- The readiness probe fails until migrations complete.
-- Rollback plan: restore the pre-upgrade backup. Destructive migrations are not
-  allowed in a single release; use expand/contract steps.
+- The health/readiness check fails until migrations complete.
+- Before an upgrade: take a backup, pull/build the new image tag, update `Image=`
+  in the Quadlet unit or image tag reference, run `systemctl --user daemon-reload`,
+  then restart `budget-agent.service`.
+- Rollback: restore the previous image tag and the pre-upgrade backup.
+  Destructive migrations are not allowed in a single release; use
+  expand/contract steps.
+- Automatic image updates (`AutoUpdate=registry`) stay off by default; upgrades
+  are deliberate because of the database.
 
 ## 11. Observability
 
 - Structured JSON logs via `log/slog`: timestamp, level, request ID, route,
   status, duration, and error code.
+- Logs go to the systemd user journal. Read them with
+  `journalctl --user -u budget-agent.service` and
+  `journalctl --user -u tailscale.service`; set a bounded journal size or
+  forward to a log store.
 - Never log full request bodies, receipt contents, tokens, phone numbers, or
   transaction descriptions at info level.
 - Request ID is accepted from a trusted proxy header or generated; it is returned
   in the response.
 - `/healthz` checks the process; `/readyz` checks database access and migration
-  state.
+  state. Podman runs the health check; systemd restarts an unhealthy container.
 - Optional `/metrics` in Prometheus text format, bound to loopback and reachable
   only through the tailnet.
 - Audit log for token changes, AI/MCP writes, WhatsApp confirmations, and failed
@@ -548,9 +672,13 @@ clear error rather than running half-configured.
 
 ## 12. Security and privacy
 
-- Tailnet-only by default; no public endpoints except the WhatsApp webhook path
-  if the operator chooses to expose it through a controlled tunnel. Prefer a
-  Tailscale Funnel-free design and a dedicated webhook relay if needed.
+- Tailnet-only by default. The UI, API, and MCP endpoint have no public route.
+  The only possible public exception is the WhatsApp webhook described in
+  §10.6, and it must be narrow, signature-verified, and rate-limited.
+- Run rootless with a read-only root filesystem, all capabilities dropped,
+  `no-new-privileges`, and no host ports published.
+- Keep the environment file mode `0600`; prefer Podman secrets for WhatsApp and AI
+  credentials.
 - Verify webhook signatures on the raw body before JSON parsing.
 - Hash tokens with Argon2id; use constant-time comparison.
 - Enforce scopes per route and per MCP tool.
@@ -575,7 +703,7 @@ clear error rather than running half-configured.
 | WhatsApp | Signed fixture payloads | Verification, bad signatures, dedupe, allowlist, confirm/reject |
 | Frontend unit | Vitest + Testing Library | Filters, forms, money formatting, budget progress |
 | End-to-end | Playwright | Add transaction, filter, create budget, confirm draft |
-| Deployment smoke | Container run + probe checks | Starts, migrates, serves UI, fails closed without config |
+| Deployment smoke | Quadlet generator dry-run + `podman run` health check | Units generate, container starts, migrations run, health check passes, app fails closed without config |
 
 - Critical paths target meaningful coverage, not a vanity percentage.
 - Golden fixtures cover budget math and representative receipt OCR output.
@@ -608,34 +736,46 @@ Aligns with `TASKS.md`.
 | M1 Backend core | Schema, accounts, tags, transactions, transfers, budgets, summaries |
 | M2 Web frontend | Dashboard, transaction flows, budgets, charts, simulation, PWA |
 | M3 AI/MCP/WhatsApp | MCP tools, draft/confirm flow, WhatsApp bot, receipt OCR, audit |
-| M4 Deployment | Image, manifests, Tailscale sidecar, backups, runbook |
+| M4 Deployment | Image, Quadlet units, install/link docs, Tailscale sidecar, backups, runbook |
 
 Each milestone ends with a runnable, tested increment and an updated `TASKS.md`.
 
-## 16. Open decisions for review
+## 16. Decisions needed
 
-Please confirm or change these before implementation:
+### 16.1 Blocking — answer before scaffolding
 
-1. **Stack:** Go + SQLite + SvelteKit as proposed in §4.
-2. **Users:** single user or a small household? This affects auth and data
-   ownership (there is no `user_id` in the schema today).
-3. **Currency:** one currency per account with a single reporting currency, or a
-   stricter single-currency system for v1?
-4. **Auth:** tailnet identity only, plus API tokens for agents? Or also a
-   passphrase fallback?
-5. **AI provider:** OpenAI-compatible by default, Anthropic adapter later, or no
-   default at all?
-6. **WhatsApp:** is a Cloud API account available now, or should the bot be
-   deferred until after the core app ships?
-7. **Deployment:** Kubernetes-only, or also a Docker Compose path for a home
-   server? (Compose is useful for local dev regardless.)
-8. **Offline behavior:** read-only PWA caching is enough?
-9. **Backups:** target and retention (S3-compatible, restic repository, or manual
-   copies)?
-10. **License:** MIT, Apache-2.0, AGPL-3.0, or private/unlicensed?
-11. **Repository host/CI:** GitHub Actions, GitLab CI, or something else?
-12. **Recommendations:** confirm that v1 uses deterministic rules rather than an
-    LLM for spending advice. An LLM summary can be added later.
+| ID | Decision | Recommended default | Why it matters |
+| --- | --- | --- | --- |
+| **D1** | **Stack** | Go + standard-library HTTP + SQLite (sqlc/goose) + SvelteKit static UI + rootless Podman Quadlet | Determines the whole codebase, build, and deployment. The alternatives are viable but slower or heavier (§4). |
+| **D2** | **User model** | **Single user for v1.** No `user_id` column yet; add it later with a migration if the household grows. | Adding multi-user support later is possible but touches every table, auth, and the UI. Decide now if more than one person will log in. |
+| **D3** | **Auth** | **Tailnet identity for the UI + hashed bearer tokens for API/MCP.** No passphrase fallback. | Tailnet-only is the simplest and safest fit for Quadlet. A passphrase adds login, sessions, CSRF, and recovery work. |
+| **D4** | **AI provider** | **Provider-agnostic interface; first adapter is OpenAI-compatible.** No key means AI features are disabled, not broken. | Hosted vs local changes privacy, cost, and which models can do receipt OCR. Local Ollama is possible but needs a vision-capable model. |
+| **D5** | **WhatsApp scope** | **Defer the WhatsApp bot to M3, and only build it if a Meta Cloud API test number/account exists.** | WhatsApp needs a public webhook, which breaks the tailnet-only default. The UI and API do not depend on it. |
+| **D6** | **Deployment host** | **Rootless Quadlet under the current user on this Bazzite/Fedora host**, data at `~/.local/share/budget-agent`, config at `~/.config/budget-agent`, units symlinked into `~/.config/containers/systemd`. | Confirmed direction: rootless Quadlet and symlink installation. Confirm the user/paths and whether SELinux `:Z` is required on this host. |
+| **D7** | **Backup target** | **Nightly local SQLite backup plus restic/rclone to an off-host target you already have.** | A backup on the same disk is not a backup. Decide the destination and retention (7 daily / 4 weekly / 6 monthly proposed). |
+
+### 16.2 Decide before the relevant milestone
+
+| ID | Decision | Recommended default | Needed by |
+| --- | --- | --- | --- |
+| **D8** | Currency | IDR as the default display currency; one currency per account; one reporting currency | M1 |
+| **D9** | Offline behavior | Read-only PWA cache only; no offline writes | M2 |
+| **D10** | License | MIT if the repository is public; otherwise private/unlicensed | M0 |
+| **D11** | CI host | GitHub Actions if the repo is on GitHub; otherwise a local `make check` first | M0 |
+| **D12** | Recommendations | Deterministic rules in v1; an LLM explanation can come later | M1 |
+| **D13** | Receipt privacy | Do not send receipt images to an AI provider unless AI is enabled and the user confirms | M3 |
+
+**Fast path:** reply `accept D1–D7 defaults` to approve the recommended column, or
+name the IDs you want to change. D8–D13 can be settled before their milestone.
+
+### 16.3 Confirmed so far
+
+- **Deployment model:** rootless Podman Quadlet pod, not Kubernetes.
+- **Installation:** symlink the Quadlet files into
+  `~/.config/containers/systemd/`, then `systemctl --user daemon-reload` and
+  start the pod.
+- **Network:** tailnet-only; no published host ports. WhatsApp is the only
+  possible public exception.
 
 ## 17. Approval
 

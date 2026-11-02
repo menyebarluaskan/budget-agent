@@ -5,7 +5,8 @@ Guidance for AI agents and human contributors working in this repository.
 ## 1. Project summary
 
 **Integrated Personal Budget** is a self-hosted personal budgeting system. The
-target deployment is a single Kubernetes pod containing:
+target deployment is a rootless Podman pod managed by systemd Quadlet units,
+containing:
 
 - one application container (HTTP API, web UI, and MCP endpoint), and
 - one Tailscale sidecar container for tailnet-only access.
@@ -129,8 +130,13 @@ Planned quality gates (subject to stack approval):
 
 - Never commit secrets, tokens, private keys, real phone numbers, or personal
   financial data. Use `.env.example` with placeholder values.
-- Load configuration from environment variables; secret values come from
-  Kubernetes Secrets.
+- Load configuration from environment variables; secret values come from a
+  `0600` environment file outside the repository or from Podman secrets.
+- Keep Quadlet units free of secrets. The real environment file lives at
+  `~/.config/budget-agent/budget-agent.env`, not in the repository.
+- Quadlet units are symlinked into `~/.config/containers/systemd/`. Do not
+  duplicate them or edit the generated units; edit the source files under
+  `deploy/quadlet/` and rerun `systemctl --user daemon-reload`.
 - Use parameterized SQL only. Never build SQL with string concatenation.
 - Validate and bound every external input: webhook bodies, uploads, query
   filters, and AI output.
