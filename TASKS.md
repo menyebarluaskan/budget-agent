@@ -33,7 +33,7 @@ Live progress tracker for **Integrated Personal Budget**.
 | T-003 | Write `docs/TECH_SPEC.md` covering architecture, stack, data model, API, AI/MCP, UI, deployment, security, and tests | `[x]` | `docs: add technical specification for review` |
 | T-004 | Update `README.md` with project status, architecture summary, and documentation links | `[x]` | `docs: refresh README with project status and links` |
 | T-005 | **Maintainer review and approval of the technical specification** | `[!]` | — |
-| T-006 | Resolve the open decisions listed in the spec | `[!]` | — |
+| T-006 | Resolve the open decisions listed in the spec | `[x]` | `docs(spec): finalize D2 and deployment details` |
 | T-007 | Scaffold repository layout, toolchain, and `Makefile` | `[ ]` | — |
 | T-008 | Add CI pipeline and baseline quality gates | `[ ]` | — |
 | T-009 | Revise deployment from Kubernetes to rootless Podman Quadlet with symlinked units | `[x]` | `docs(deploy): replace Kubernetes with rootless Podman Quadlet` |
@@ -43,14 +43,14 @@ Live progress tracker for **Integrated Personal Budget**.
 
 | ID | Task | Status | Commit |
 | --- | --- | --- | --- |
-| T-101 | Database connection, migrations, and schema for accounts, transactions, tags, and budgets | `[ ]` | — |
+| T-101 | Database connection, migrations, and workspace-scoped schema for users, workspaces, accounts, transactions, tags, and budgets | `[ ]` | — |
 | T-102 | Account CRUD and balance calculation | `[ ]` | — |
 | T-103 | Tag CRUD | `[ ]` | — |
 | T-104 | Transaction CRUD with tags, signed amounts, and filtering | `[ ]` | — |
 | T-105 | Budget CRUD and tag-based budget summaries | `[ ]` | — |
 | T-106 | Spending summary and recommendation endpoints | `[ ]` | — |
 | T-107 | OpenAPI contract and request/response validation | `[ ]` | — |
-| T-108 | Authentication (bearer tokens and/or tailnet identity) and rate limiting | `[ ]` | — |
+| T-108 | Authentication (tailnet identity and bearer tokens), workspace mapping, and rate limiting | `[ ]` | — |
 
 ## Milestone 2 — Web frontend
 
@@ -62,6 +62,7 @@ Live progress tracker for **Integrated Personal Budget**.
 | T-204 | Budget and account management screens | `[ ]` | — |
 | T-205 | Spending charts and what-if simulation | `[ ]` | — |
 | T-206 | PWA polish, accessibility pass, and performance budget check | `[ ]` | — |
+| T-207 | Workspace switcher and personal/shared workspace UI, hidden until more than one workspace exists | `[ ]` | — |
 
 ## Milestone 3 — AI, MCP, and WhatsApp
 
@@ -88,18 +89,15 @@ Live progress tracker for **Integrated Personal Budget**.
 
 These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 
-**Still blocking:**
-
-- [ ] D2 — Choose **A (one shared ledger)** or **B (multi-workspace)**. Recommended: B.
-- [ ] D6 — Provide miniPC details: OS/distro, architecture, Podman version, SELinux state, deployment user, hostname.
-
 **Resolved:**
 
 - [x] D1 — Approved: Go + SQLite + SvelteKit + rootless Quadlet.
+- [x] D2 — Approved: Option B (multi-workspace). Personal workspace by default.
 - [x] D3 — Approved: tailnet identity + hashed API tokens.
 - [x] D4 — Approved: pluggable OpenAI-compatible AI adapter.
 - [x] D5 — Deferred for v1; keep the narrow Funnel webhook design for later.
-- [x] D7 — Deferred; build local backup now, choose off-host destination later.
+- [x] D6 — Approved: Rocky Linux 10.2 (x86_64), Podman 5.8.2, SELinux Enforcing, user `kegiatan` on miniPC, always on, no external drive.
+- [x] D7 — Deferred; local backup now, restic to Cloudflare R2/B2 later.
 
 **Later (D8–D13):**
 
@@ -117,3 +115,4 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 | 2026-11-02 | Initial task list; specification phase opened. |
 | 2026-11-02 | Deployment revised to rootless Podman Quadlet; decisions prioritized. |
 | 2026-11-02 | D1/D3/D4 approved; D5/D7 deferred; D2 options expanded; D6 moved to miniPC. |
+| 2026-11-02 | D2 approved as multi-workspace; miniPC details confirmed; tailnet hostname proposed. |

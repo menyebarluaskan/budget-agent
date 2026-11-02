@@ -754,12 +754,12 @@ Each milestone ends with a runnable, tested increment and an updated `TASKS.md`.
 | ID | Decision | Recommended default | Why it matters |
 | --- | --- | --- | --- |
 | **D1** | **Stack** | Go + standard-library HTTP + SQLite (sqlc/goose) + SvelteKit static UI + rootless Podman Quadlet | Determines the whole codebase, build, and deployment. The alternatives are viable but slower or heavier (§4). |
-| **D2** | **User model** | **Multi-workspace-ready schema, single-workspace UX for v1** (see §16.3). | Adding workspace scoping later touches every table and query. Decide before the first migration. |
+| **D2** | **User model** | **Option B — Multi-workspace** (see §16.3). Each Tailscale user gets a default workspace; isolation is enforced by `workspace_id`. | Allows separate budgets per person in the household. Safe default for v1 with the switcher hidden until multiple workspaces exist. |
 | **D3** | **Auth** | **Tailnet identity for the UI + hashed bearer tokens for API/MCP.** No passphrase fallback. | Tailnet-only is the simplest and safest fit for Quadlet. A passphrase adds login, sessions, CSRF, and recovery work. |
 | **D4** | **AI provider** | **Provider-agnostic interface; first adapter is OpenAI-compatible.** No key means AI features are disabled, not broken. | Hosted vs local changes privacy, cost, and which models can do receipt OCR. Local Ollama is possible but needs a vision-capable model. |
 | **D5** | **WhatsApp scope** | **Deferred for v1.** Keep the Funnel-only webhook design ready for later. | WhatsApp needs a public webhook, which breaks the tailnet-only default. The UI and API do not depend on it. |
-| **D6** | **Deployment host** | **The miniPC, not the development PC.** Use a dedicated rootless user or your login user, data at `~/.local/share/budget-agent`, config at `~/.config/budget-agent`, units symlinked into `~/.config/containers/systemd`. | Confirm the miniPC OS, architecture, Podman version, SELinux state, user, and hostname before writing install docs. |
-| **D7** | **Backup target** | **Deferred.** Build the local backup command and timer now; choose the off-host destination later (see §16.4). | A backup on the same disk is not a backup. The destination can be chosen once the miniPC storage is known. |
+| **D6** | **Deployment host** | **Rocky Linux 10.2 (x86_64), Podman 5.8.2, SELinux Enforcing, user `kegiatan` on the always-on miniPC. No external drive. Data at `~/.local/share/budget-agent`, config at `~/.config/budget-agent`, units symlinked into `~/.config/containers/systemd/`.** | Use `:Z` mounts, `loginctl enable-linger kegiatan`, and build for `linux/amd64`. |
+| **D7** | **Backup target** | **Deferred.** Build local `VACUUM INTO` + systemd user timer now. Plan off-host via `restic` to Cloudflare R2 or Backblaze B2 later (no external drive available). | Follow 3-2-1 where practical. Keep 7 daily / 4 weekly / 6 monthly retention. |
 
 ### 16.2 Decide before the relevant milestone
 
@@ -772,9 +772,8 @@ Each milestone ends with a runnable, tested increment and an updated `TASKS.md`.
 | **D12** | Recommendations | Deterministic rules in v1; an LLM explanation can come later | M1 |
 | **D13** | Receipt privacy | Do not send receipt images to an AI provider unless AI is enabled and the user confirms | M3 |
 
-**Fast path:** choose **A** or **B** for D2, confirm the D6 miniPC details,
-and treat D1, D3, D4 as approved. D5 and D7 are deferred. D8–D13 can be settled
-before their milestone.
+**Status:** D1–D6 are resolved. D5 and D7 are deferred. D8–D13 can be settled
+before their milestone. Only the final specification approval remains.
 
 ### 16.3 User model: shared vs separate budgets
 
@@ -786,18 +785,18 @@ The question is ownership, not “how many people can log in”.
 | **B. Multiple workspaces** | Each person/household unit has their own workspace with isolated data. A user can belong to one or more workspaces. | Add `workspaces(id, ...)`, add `workspace_id` to `accounts`, `transactions`, `tags`, `budgets`, `receipts`, `drafts`, etc. All queries must filter by workspace. | Need to map the authenticated identity (tailnet login or token) to one or more workspace memberships and an active workspace. | Need a workspace switcher and per-workspace settings. | Good if different people want **separate budgeting**. Still fits a single Podman pod. |
 | **C. Per-transaction ownership** | Users can tag transactions but share accounts/budgets. | Partial scoping; hard to enforce isolation for summaries/budgets. | Complex. | Confusing. | Not recommended. |
 
-**Default for v1:** **Option B — multi-workspace-ready schema.** That way a
-single person can use one workspace, or multiple people can have separate
-workspaces without a painful schema migration. The UI can default to a single
-workspace and hide the switcher until there is more than one.
+**Chosen: Option B — multi-workspace.** Each Tailscale user gets a personal
+workspace by default. A shared household workspace can be added later through
+workspace membership. The UI hides the workspace switcher until a user belongs to
+more than one workspace.
 
 **Concrete schema notes for B:**
 
 - `users`: `id` TEXT PK, `tailscale_login` TEXT UNIQUE, `display_name` TEXT,
   `created_at` TEXT.
 - `workspaces`: `id` TEXT PK, `name` TEXT, `owner_user_id` TEXT REFERENCES
-  `users(id)`, `created_at` TEXT, `updated_at` TEXT. Add a default workspace
-  during migrations.
+  `users(id)`, `created_at` TEXT, `updated_at` TEXT. Create a default workspace
+  for the first user during setup.
 - `workspace_members`: `(workspace_id, user_id)` composite PK, `role` TEXT
   (`owner`, `member`), `created_at` TEXT.
 - Add `workspace_id` TEXT NOT NULL REFERENCES `workspaces(id)` to: `accounts`,
@@ -808,15 +807,15 @@ workspace and hide the switcher until there is more than one.
   missing scoping as a bug.
 - The app must not leak data between workspaces; integration tests must cover
   cross-workspace isolation.
-
-If you prefer **Option A** instead, we can skip `workspace_id` for v1 and add it
-later with a large migration. Given you said someone in the household might want
-their own budgeting, **Option B is safer** but costs a little more upfront.
+- A token is bound to one workspace (or explicitly scoped to a user and active
+  workspace). MCP and API clients cannot cross workspace boundaries silently.
 
 ### 16.4 Backup options (D7, deferred)
 
-The local backup command and timer can be built now; the off-host destination can
-wait until the miniPC storage is known.
+The local backup command and timer can be built now. The miniPC has ~831 GB free
+on `/home` and no external drive, so the recommended path is local snapshots now
+plus `restic` to Cloudflare R2 or Backblaze B2 later. Keep the cloud credentials
+in the `0600` environment file or a Podman secret.
 
 | Option | What it protects against | Cost / effort | Notes |
 | --- | --- | --- | --- |
@@ -834,21 +833,26 @@ before entering real data.
 | ID | Status | Note |
 | --- | --- | --- |
 | D1 | Approved | Go + standard-library HTTP + SQLite + SvelteKit + rootless Quadlet. |
-| D2 | **Pending** | Choose option A (one shared ledger) or B (multi-workspace) in §16.3. |
+| D2 | Approved | Option B: multi-workspace. Each Tailscale user gets a personal workspace; shared workspaces can be added later. |
 | D3 | Approved | Tailnet identity for the UI, hashed bearer tokens for API/MCP, no passphrase. |
 | D4 | Approved | Provider-agnostic AI interface; OpenAI-compatible adapter first. |
 | D5 | Deferred | WhatsApp is out of v1. Keep the narrow Funnel webhook design documented for later. |
-| D6 | **Pending details** | Deployment is on the miniPC, not this development PC. Need OS, architecture, Podman version, SELinux state, user, and hostname. |
-| D7 | Deferred | Build local backup command/timer; choose off-host destination later. See §16.4. |
+| D6 | Approved | Rocky Linux 10.2 x86_64, Podman 5.8.2, SELinux Enforcing, user `kegiatan`, always on, no external drive. |
+| D7 | Deferred | Local `VACUUM INTO` backup now; `restic` to Cloudflare R2 or Backblaze B2 later. |
 
 Also confirmed:
 
+- **Target host:** Rocky Linux 10.2 (x86_64), Podman 5.8.2, SELinux
+  `Enforcing`, user `kegiatan`, hostname `localhost.localdomain` (Tailscale
+  machine name proposed as `budget-agent`), ~831 GB free on `/home`.
+- **Build target:** `linux/amd64`.
 - **Deployment model:** rootless Podman Quadlet pod, not Kubernetes.
 - **Installation:** symlink the Quadlet files into
   `~/.config/containers/systemd/`, then `systemctl --user daemon-reload` and
-  start the pod.
+  start the pod. `loginctl enable-linger kegiatan` is required.
 - **Network:** tailnet-only; no published host ports. WhatsApp is the only
   possible public exception.
+- **Tailscale URL (proposed):** `https://budget-agent.<tailnet>.ts.net`
 
 ## 17. Approval
 
