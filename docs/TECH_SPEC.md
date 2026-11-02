@@ -39,7 +39,7 @@ Build a self-hosted, low-resource personal budgeting system that:
 | --- | --- |
 | Users | One person or one household. A small number of named users is acceptable. |
 | Deployment | One rootless Podman pod, managed by user-level systemd Quadlet units. |
-| Host | Linux with cgroup v2, Podman 5.x, systemd user services, and SELinux-aware mounts. |
+| Host | Linux miniPC with cgroup v2, a recent Podman with Quadlet support, systemd user services, and SELinux-aware mounts. |
 | Network | Reachable only over a Tailscale tailnet. No published host ports and no public ingress. |
 | Data volume | Under ~100k transactions and ~10 GB of receipt images over several years. |
 | Currency | One currency per account; a single reporting currency for summaries. |
@@ -145,6 +145,11 @@ Key decisions:
 | Unofficial WhatsApp bridge | Account-ban risk and no supported webhook contract. The official Cloud API is preferred. |
 
 ## 5. Data model
+
+> **Workspace scoping is pending D2.** The tables below show the single-ledger
+> shape. If D2 chooses **Option B** (recommended), add a `workspaces` table and a
+> `workspace_id` foreign key on the core tables as described in §16.3. This must
+> be settled before the first migration (`T-101`).
 
 All timestamps are UTC ISO-8601 text in SQLite. Money is stored as a signed
 integer in the currency's minor unit (for example, cents).
@@ -749,12 +754,12 @@ Each milestone ends with a runnable, tested increment and an updated `TASKS.md`.
 | ID | Decision | Recommended default | Why it matters |
 | --- | --- | --- | --- |
 | **D1** | **Stack** | Go + standard-library HTTP + SQLite (sqlc/goose) + SvelteKit static UI + rootless Podman Quadlet | Determines the whole codebase, build, and deployment. The alternatives are viable but slower or heavier (§4). |
-| **D2** | **User model** | **Single user for v1.** No `user_id` column yet; add it later with a migration if the household grows. | Adding multi-user support later is possible but touches every table, auth, and the UI. Decide now if more than one person will log in. |
+| **D2** | **User model** | **Multi-workspace-ready schema, single-workspace UX for v1** (see §16.3). | Adding workspace scoping later touches every table and query. Decide before the first migration. |
 | **D3** | **Auth** | **Tailnet identity for the UI + hashed bearer tokens for API/MCP.** No passphrase fallback. | Tailnet-only is the simplest and safest fit for Quadlet. A passphrase adds login, sessions, CSRF, and recovery work. |
 | **D4** | **AI provider** | **Provider-agnostic interface; first adapter is OpenAI-compatible.** No key means AI features are disabled, not broken. | Hosted vs local changes privacy, cost, and which models can do receipt OCR. Local Ollama is possible but needs a vision-capable model. |
-| **D5** | **WhatsApp scope** | **Defer the WhatsApp bot to M3, and only build it if a Meta Cloud API test number/account exists.** | WhatsApp needs a public webhook, which breaks the tailnet-only default. The UI and API do not depend on it. |
-| **D6** | **Deployment host** | **Rootless Quadlet under the current user on this Bazzite/Fedora host**, data at `~/.local/share/budget-agent`, config at `~/.config/budget-agent`, units symlinked into `~/.config/containers/systemd`. | Confirmed direction: rootless Quadlet and symlink installation. Confirm the user/paths and whether SELinux `:Z` is required on this host. |
-| **D7** | **Backup target** | **Nightly local SQLite backup plus restic/rclone to an off-host target you already have.** | A backup on the same disk is not a backup. Decide the destination and retention (7 daily / 4 weekly / 6 monthly proposed). |
+| **D5** | **WhatsApp scope** | **Deferred for v1.** Keep the Funnel-only webhook design ready for later. | WhatsApp needs a public webhook, which breaks the tailnet-only default. The UI and API do not depend on it. |
+| **D6** | **Deployment host** | **The miniPC, not the development PC.** Use a dedicated rootless user or your login user, data at `~/.local/share/budget-agent`, config at `~/.config/budget-agent`, units symlinked into `~/.config/containers/systemd`. | Confirm the miniPC OS, architecture, Podman version, SELinux state, user, and hostname before writing install docs. |
+| **D7** | **Backup target** | **Deferred.** Build the local backup command and timer now; choose the off-host destination later (see §16.4). | A backup on the same disk is not a backup. The destination can be chosen once the miniPC storage is known. |
 
 ### 16.2 Decide before the relevant milestone
 
@@ -767,10 +772,71 @@ Each milestone ends with a runnable, tested increment and an updated `TASKS.md`.
 | **D12** | Recommendations | Deterministic rules in v1; an LLM explanation can come later | M1 |
 | **D13** | Receipt privacy | Do not send receipt images to an AI provider unless AI is enabled and the user confirms | M3 |
 
-**Fast path:** reply `accept D1–D7 defaults` to approve the recommended column, or
-name the IDs you want to change. D8–D13 can be settled before their milestone.
+**Fast path:** choose **A** or **B** for D2, confirm the D6 miniPC details,
+and treat D1, D3, D4 as approved. D5 and D7 are deferred. D8–D13 can be settled
+before their milestone.
 
-### 16.3 Confirmed so far
+### 16.3 User model: shared vs separate budgets
+
+The question is ownership, not “how many people can log in”.
+
+| Option | What it means | Schema impact | Auth impact | UX impact | Recommendation |
+| --- | --- | --- | --- | --- | --- |
+| **A. Single shared ledger** | One set of accounts/transactions/budgets. Everyone uses the same workspace. | No `user_id`. All tables are global. | Can use tailnet identity just to gate access, or a single shared token. | Simplest UI, all balances together. | Good if everyone contributes to the same household budget. |
+| **B. Multiple workspaces** | Each person/household unit has their own workspace with isolated data. A user can belong to one or more workspaces. | Add `workspaces(id, ...)`, add `workspace_id` to `accounts`, `transactions`, `tags`, `budgets`, `receipts`, `drafts`, etc. All queries must filter by workspace. | Need to map the authenticated identity (tailnet login or token) to one or more workspace memberships and an active workspace. | Need a workspace switcher and per-workspace settings. | Good if different people want **separate budgeting**. Still fits a single Podman pod. |
+| **C. Per-transaction ownership** | Users can tag transactions but share accounts/budgets. | Partial scoping; hard to enforce isolation for summaries/budgets. | Complex. | Confusing. | Not recommended. |
+
+**Default for v1:** **Option B — multi-workspace-ready schema.** That way a
+single person can use one workspace, or multiple people can have separate
+workspaces without a painful schema migration. The UI can default to a single
+workspace and hide the switcher until there is more than one.
+
+**Concrete schema notes for B:**
+
+- `workspaces`: `id` TEXT PK, `name` TEXT, `created_at` TEXT, `updated_at` TEXT.
+  Add a default workspace during migrations.
+- Add `workspace_id` TEXT NOT NULL REFERENCES `workspaces(id)` to: `accounts`,
+  `transactions`, `tags`, `budgets`, `receipts`, `drafts`, `api_tokens`,
+  `jobs`, and `audit_log`.
+- All foreign keys and indexes must include `workspace_id`.
+- Every domain query must include `workspace_id` in its `WHERE` clause; treat
+  missing scoping as a bug.
+- The app must not leak data between workspaces; integration tests must cover
+  cross-workspace isolation.
+
+If you prefer **Option A** instead, we can skip `workspace_id` for v1 and add it
+later with a large migration. Given you said someone in the household might want
+their own budgeting, **Option B is safer** but costs a little more upfront.
+
+### 16.4 Backup options (D7, deferred)
+
+The local backup command and timer can be built now; the off-host destination can
+wait until the miniPC storage is known.
+
+| Option | What it protects against | Cost / effort | Notes |
+| --- | --- | --- | --- |
+| **Local `VACUUM INTO` + retention** | App bugs, bad deletes, corruption | Low | Same disk. Not sufficient for disk failure or theft. |
+| **Local + restic to S3-compatible storage** | Disk failure, ransomware, site loss | Low/medium; small recurring cost | Backblaze B2, Cloudflare R2, MinIO, or a NAS. Encrypted and deduplicated. **Recommended.** |
+| **Local + restic/rclone to NAS or USB drive** | Disk failure, some mistakes | Low; needs a reachable NAS or rotated drive | No cloud. Rotate/keep the drive off-site for real protection. |
+| **Litestream continuous replication** | Near-real-time loss | Medium; another moving part | Useful later if near-zero RPO matters. More complex restore. |
+
+Keep the 7 daily / 4 weekly / 6 monthly retention proposal. Follow the 3-2-1
+rule where practical: three copies, two media, one off-device. Test a restore
+before entering real data.
+
+### 16.5 Confirmed so far
+
+| ID | Status | Note |
+| --- | --- | --- |
+| D1 | Approved | Go + standard-library HTTP + SQLite + SvelteKit + rootless Quadlet. |
+| D2 | **Pending** | Choose option A (one shared ledger) or B (multi-workspace) in §16.3. |
+| D3 | Approved | Tailnet identity for the UI, hashed bearer tokens for API/MCP, no passphrase. |
+| D4 | Approved | Provider-agnostic AI interface; OpenAI-compatible adapter first. |
+| D5 | Deferred | WhatsApp is out of v1. Keep the narrow Funnel webhook design documented for later. |
+| D6 | **Pending details** | Deployment is on the miniPC, not this development PC. Need OS, architecture, Podman version, SELinux state, user, and hostname. |
+| D7 | Deferred | Build local backup command/timer; choose off-host destination later. See §16.4. |
+
+Also confirmed:
 
 - **Deployment model:** rootless Podman Quadlet pod, not Kubernetes.
 - **Installation:** symlink the Quadlet files into

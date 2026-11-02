@@ -37,6 +37,7 @@ Live progress tracker for **Integrated Personal Budget**.
 | T-007 | Scaffold repository layout, toolchain, and `Makefile` | `[ ]` | — |
 | T-008 | Add CI pipeline and baseline quality gates | `[ ]` | — |
 | T-009 | Revise deployment from Kubernetes to rootless Podman Quadlet with symlinked units | `[x]` | `docs(deploy): replace Kubernetes with rootless Podman Quadlet` |
+| T-010 | Record approved/deferred decisions and expand the user-model options | `[x]` | `docs(spec): record decisions and expand user model options` |
 
 ## Milestone 1 — Backend core
 
@@ -68,7 +69,7 @@ Live progress tracker for **Integrated Personal Budget**.
 | --- | --- | --- | --- |
 | T-301 | MCP server with transaction, query, budget, and receipt tools | `[ ]` | — |
 | T-302 | AI provider abstraction and chat-to-transaction draft flow | `[ ]` | — |
-| T-303 | WhatsApp webhook with signature verification, allowlist, and idempotency | `[ ]` | — |
+| T-303 | WhatsApp webhook with signature verification, allowlist, and idempotency | `[!]` | Deferred by D5 |
 | T-304 | Receipt upload and vision-based OCR into a confirmable draft | `[ ]` | — |
 | T-305 | Audit trail for AI-assisted writes | `[ ]` | — |
 
@@ -85,18 +86,20 @@ Live progress tracker for **Integrated Personal Budget**.
 
 ## Open decisions blocking T-006
 
-These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16. The recommended defaults
-are in the spec; reply `accept D1–D7 defaults` to unblock scaffolding.
+These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 
-**Blocking (D1–D7):**
+**Still blocking:**
 
-- [ ] D1 — Approve the stack (Go + SQLite + SvelteKit + rootless Quadlet).
-- [ ] D2 — Single user or household? Recommended: single user for v1.
-- [ ] D3 — Auth model. Recommended: tailnet identity + hashed API tokens.
-- [ ] D4 — AI provider. Recommended: pluggable OpenAI-compatible adapter.
-- [ ] D5 — WhatsApp scope. Recommended: defer until a Cloud API account exists.
-- [ ] D6 — Deployment host/user/paths. Confirmed rootless Quadlet and symlink install; confirm details.
-- [ ] D7 — Backup destination and retention.
+- [ ] D2 — Choose **A (one shared ledger)** or **B (multi-workspace)**. Recommended: B.
+- [ ] D6 — Provide miniPC details: OS/distro, architecture, Podman version, SELinux state, deployment user, hostname.
+
+**Resolved:**
+
+- [x] D1 — Approved: Go + SQLite + SvelteKit + rootless Quadlet.
+- [x] D3 — Approved: tailnet identity + hashed API tokens.
+- [x] D4 — Approved: pluggable OpenAI-compatible AI adapter.
+- [x] D5 — Deferred for v1; keep the narrow Funnel webhook design for later.
+- [x] D7 — Deferred; build local backup now, choose off-host destination later.
 
 **Later (D8–D13):**
 
@@ -113,3 +116,4 @@ are in the spec; reply `accept D1–D7 defaults` to unblock scaffolding.
 | --- | --- |
 | 2026-11-02 | Initial task list; specification phase opened. |
 | 2026-11-02 | Deployment revised to rootless Podman Quadlet; decisions prioritized. |
+| 2026-11-02 | D1/D3/D4 approved; D5/D7 deferred; D2 options expanded; D6 moved to miniPC. |
