@@ -146,10 +146,10 @@ Key decisions:
 
 ## 5. Data model
 
-> **Workspace scoping is pending D2.** The tables below show the single-ledger
-> shape. If D2 chooses **Option B** (recommended), add a `workspaces` table and a
-> `workspace_id` foreign key on the core tables as described in §16.3. This must
-> be settled before the first migration (`T-101`).
+> **Workspace scoping (D2 = Option B).** The tables below show the single-ledger
+> shape. Add `users`, `workspaces`, `workspace_members`, and a `workspace_id`
+> foreign key on the core tables as described in §16.3. This must be settled
+> before the first migration (`T-101`).
 
 All timestamps are UTC ISO-8601 text in SQLite. Money is stored as a signed
 integer in the currency's minor unit (for example, cents).
@@ -522,10 +522,11 @@ Key unit settings:
   `Volume=%h/.local/share/budget-agent/data:/data:Z`.
 - Health: `HealthCmd=/budget-agent healthcheck`, `HealthInterval=30s`,
   `HealthOnFailure=kill`, plus `Restart=on-failure` in `[Service]`.
-- Tailscale: `TS_USERSPACE=true`, `TS_STATE_DIR=/var/lib/tailscale`,
-  `TS_SERVE_CONFIG=/etc/tailscale/serve.json`, a state bind mount at
-  `%h/.local/share/budget-agent/tailscale:/var/lib/tailscale:Z`, and the Serve
-  config mounted read-only from `~/.config/budget-agent/serve.json`.
+- Tailscale: `TS_HOSTNAME=budget-agent`, `TS_USERSPACE=true`,
+  `TS_STATE_DIR=/var/lib/tailscale`, `TS_SERVE_CONFIG=/etc/tailscale/serve.json`,
+  a state bind mount at `%h/.local/share/budget-agent/tailscale:/var/lib/tailscale:Z`,
+  and the Serve config mounted read-only from
+  `~/.config/budget-agent/serve.json`.
 - Tailscale never uses `NET_ADMIN`, `/dev/net/tun`, or a public host port in the
   default design.
 - Both containers join `budget-agent.pod`, so `127.0.0.1` is shared between them.
@@ -749,7 +750,7 @@ Each milestone ends with a runnable, tested increment and an updated `TASKS.md`.
 
 ## 16. Decisions needed
 
-### 16.1 Blocking — answer before scaffolding
+### 16.1 Decisions resolved before scaffolding
 
 | ID | Decision | Recommended default | Why it matters |
 | --- | --- | --- | --- |
