@@ -24,6 +24,8 @@ same API through MCP.
 ### Budgeting
 
 - Add transactions with multiple tags and a simple `+`/`-` expense indicator.
+- Separate workspaces for household members, with optional shared workspaces
+  later.
 - Budgets grouped by multiple transaction tags.
 - Wallets, savings, and credit accounts, including transfers between them.
 - Filter by account, tag, budget, and amount.

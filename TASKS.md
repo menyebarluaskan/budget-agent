@@ -38,6 +38,7 @@ Live progress tracker for **Integrated Personal Budget**.
 | T-008 | Add CI pipeline and baseline quality gates | `[ ]` | — |
 | T-009 | Revise deployment from Kubernetes to rootless Podman Quadlet with symlinked units | `[x]` | `docs(deploy): replace Kubernetes with rootless Podman Quadlet` |
 | T-010 | Record approved/deferred decisions and expand the user-model options | `[x]` | `docs(spec): record decisions and expand user model options` |
+| T-011 | Update README for multi-workspace budgeting and the miniPC target | `[x]` | `docs: mention multi-workspace budgeting in README` |
 
 ## Milestone 1 — Backend core
 
