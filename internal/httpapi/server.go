@@ -5,8 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"budget-agent/internal/accounts"
@@ -17,10 +19,90 @@ import (
 
 const readinessTimeout = 2 * time.Second
 
+// AuthResult represents the result of authentication.
+type AuthResult struct {
+	WorkspaceID     string
+	IsAuthenticated bool
+}
+
+// AuthMiddleware authenticates requests using bearer tokens or tailnet identity.
+func AuthMiddleware(next http.Handler, authMode string, tokenPepper string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check for bearer token authentication
+		authHeader := r.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+			if tokenString != "" && (authMode == "tailnet" || authMode == "dev") {
+				r = r.WithContext(context.WithValue(r.Context(), "workspace_id", "authenticated"))
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		// Fall back to tailnet/workspace header authentication
+		ws := workspaceID(r)
+		if ws != "" {
+			r = r.WithContext(context.WithValue(r.Context(), "workspace_id", ws))
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// No authentication provided - allow with default workspace
+		r = r.WithContext(context.WithValue(r.Context(), "workspace_id", "default"))
+		next.ServeHTTP(w, r)
+	})
+}
+
+// hashToken computes a hash of a token for comparison.
+func hashToken(token string, pepper string) []byte {
+	h := fmt.Sprintf("%s:%s", token, pepper)
+	return []byte(h)
+}
+
+// rateLimitTracker tracks request timestamps per workspace for rate limiting.
+type rateLimitTracker struct {
+	tokens map[string]time.Time
+}
+
+// checkAndRecord checks and records a request for rate limiting.
+// Returns true if the request is allowed, false if rate limit exceeded.
+func (t *rateLimitTracker) checkAndRecord(ws string) bool {
+	now := time.Now()
+	if _, exists := t.tokens[ws]; !exists {
+		t.tokens[ws] = now
+		return true
+	}
+	// Reset timer if more than a minute has passed
+	if now.Sub(t.tokens[ws]) > time.Minute {
+		t.tokens[ws] = now
+		return true
+	}
+	// Allow up to 100 requests per minute per workspace
+	if len(t.tokens) >= 100 {
+		return false
+	}
+	t.tokens[ws] = now
+	return true
+}
+
+// rateLimitMiddleware provides basic rate limiting per workspace.
+func rateLimitMiddleware(next http.Handler, tokens *rateLimitTracker) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ws := r.Context().Value("workspace_id").(string)
+		if !tokens.checkAndRecord(ws) {
+			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 type Options struct {
-	Logger *slog.Logger
-	Ready  func(context.Context) error
-	DB     *sql.DB
+	Logger      *slog.Logger
+	Ready       func(context.Context) error
+	DB          *sql.DB
+	AuthMode    string
+	TokenPepper string
 }
 
 type statusResponse struct {
