@@ -115,19 +115,29 @@ Rules:
 
 ## 7. Commands
 
-The toolchain does not exist yet. After scaffolding, the expected entry points
-will be defined in the spec and wired through a `Makefile`. Until then:
+The project uses a `Makefile` as the canonical entry point. Commands run from
+the repository root.
 
-- Do not invent commands in documentation.
-- When code lands, update this section with the real commands and keep CI in
-  sync with it.
+| Command | Purpose |
+| --- | --- |
+| `make help` | List available targets. |
+| `make dev` | Run the API and SvelteKit dev server together. |
+| `make dev-api` | Run the Go API with local defaults (`127.0.0.1:8080`). |
+| `make dev-web` | Run the SvelteKit dev server on `127.0.0.1:5173`. |
+| `make web-install` | Install frontend dependencies with `pnpm`. |
+| `make build` | Build the static frontend and compile the Go binary to `bin/budget-agent`. |
+| `make test` | Run Go and frontend unit tests. |
+| `make fmt` | Format Go sources and the frontend. |
+| `make lint` | Run `go vet` and frontend linting/format checks. |
+| `make web-check` | Type-check the SvelteKit app. |
+| `make check` | Run the full local quality gate (lint, type check, tests, build). |
+| `make clean` | Remove generated build output. |
 
-Planned quality gates (subject to stack approval):
+Quality gates:
 
-- Backend: format, vet, static analysis, unit and integration tests.
-- Frontend: type check, lint, unit tests, production build.
-- End-to-end: browser tests for the critical transaction and budget flows.
-- API: OpenAPI validation and contract tests.
+- Backend: `gofmt`, `go vet`, unit tests (`go test ./...`).
+- Frontend: type check (`svelte-check`), lint/format (`prettier`, `eslint`), unit tests (`vitest`), production build (`vite build`).
+- Integration/E2E tests land with their milestones.
 
 ## 8. Security rules
 

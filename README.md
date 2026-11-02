@@ -5,9 +5,10 @@ containerized service with its own pod and a Tailscale sidecar, exposes an HTTP
 API, and ships a mobile-friendly web UI. AI agents and a WhatsApp bot use the
 same API through MCP.
 
-> **Status: design phase.** The technical specification is awaiting review. No
-> application code exists yet. See [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md) and
-> [`TASKS.md`](TASKS.md).
+> **Status: foundation phase.** The technical specification is approved and the
+> repository is scaffolded. Health endpoints, the SvelteKit shell, and the local
+> quality gates are in place; feature milestones are next. See
+> [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md) and [`TASKS.md`](TASKS.md).
 
 ## Goals
 
@@ -43,7 +44,7 @@ same API through MCP.
 - Spending graphs and what-if simulations.
 - PWA-friendly, mobile-first layout.
 
-## Proposed architecture
+## Architecture
 
 ```text
 Browser / MCP client / WhatsApp
@@ -71,8 +72,7 @@ Browser / MCP client / WhatsApp
   Cloud API (optional and deferred until a public webhook is acceptable).
 
 The full rationale, data model, API surface, security rules, and decisions are in
-[`docs/TECH_SPEC.md`](docs/TECH_SPEC.md). **The stack is a proposal until the
-maintainer approves it.**
+[`docs/TECH_SPEC.md`](docs/TECH_SPEC.md).
 
 ## Documentation
 
@@ -86,7 +86,7 @@ maintainer approves it.**
 
 | Milestone | Status |
 | --- | --- |
-| M0 — Specification and foundations | In progress: spec under review |
+| M0 — Specification and foundations | In progress: spec approved, repository scaffolded |
 | M1 — Backend core | Not started |
 | M2 — Web frontend | Not started |
 | M3 — AI, MCP, WhatsApp | Not started |
@@ -94,9 +94,43 @@ maintainer approves it.**
 
 ## Development
 
-There is no runnable code yet. Once the specification is approved, this section
-will document prerequisites, local development, tests, and the container build.
-Planned entry points will go through a `Makefile`.
+### Prerequisites
+
+- Go 1.26.4 or newer.
+- Node.js 22.12 or newer.
+- pnpm 11 or newer.
+- GNU Make.
+
+### First run
+
+```bash
+make dev
+```
+
+`make dev` installs frontend dependencies if needed, then starts the API on
+`http://127.0.0.1:8080` and the SvelteKit dev server on
+`http://127.0.0.1:5173`. Local data goes under `.local/`, which is ignored by
+Git.
+
+To run them separately:
+
+```bash
+make dev-api
+make dev-web
+```
+
+### Quality gates
+
+```bash
+make check
+```
+
+This runs Go formatting and vetting, frontend format/lint checks, the SvelteKit
+type check, both unit-test suites, and the production frontend build.
+
+Use `make build` to produce `bin/budget-agent`. The frontend build currently
+lives in `web/build`; embedding it into the Go binary lands with the deployment
+milestone.
 
 ## Contributing
 

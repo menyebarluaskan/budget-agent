@@ -1,0 +1,19 @@
+# Package managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# Generated output
+.svelte-kit/
+build/
+coverage/
+node_modules/
+
+# Static assets are not source
+static/
+
+# Env
+.env
+.env.*

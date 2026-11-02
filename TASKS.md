@@ -16,14 +16,15 @@ Live progress tracker for **Integrated Personal Budget**.
 - One task per logical change; one semantic commit per completed task.
 - Update this file in the same commit as the work it describes.
 - Mark blocked tasks `[!]` and write the blocker and owner next to them.
-- Do not start implementation tasks before `T-005` is approved.
+- Follow the milestone order in `docs/TECH_SPEC.md`; the specification was
+  approved on 2026-11-02 (`T-005`).
 - Add the commit subject in the **Commit** column so progress is traceable from
   `git log` alone.
 
 ## Current phase
 
-**Phase 1 — Foundation.** The specification is approved; scaffolding is in
-progress. No feature milestone has started.
+**Phase 1 — Foundation.** Scaffolding is complete; CI is the remaining
+foundation task. No feature milestone has started.
 
 ## Milestone 0 — Project foundations
 
@@ -35,8 +36,8 @@ progress. No feature milestone has started.
 | T-004 | Update `README.md` with project status, architecture summary, and documentation links | `[x]` | `docs: refresh README with project status and links` |
 | T-005 | **Maintainer review and approval of the technical specification** | `[x]` | `docs: approve technical specification` |
 | T-006 | Resolve the open decisions listed in the spec | `[x]` | `docs(spec): finalize D2 and deployment details` |
-| T-007 | Scaffold repository layout, toolchain, and `Makefile` | `[ ]` | — |
-| T-008 | Add CI pipeline and baseline quality gates | `[ ]` | — |
+| T-007 | Scaffold repository layout, toolchain, and `Makefile` | `[x]` | `chore: scaffold repository and toolchain` |
+| T-008 | Add CI pipeline and baseline quality gates | `[!]` | Awaiting D11 |
 | T-009 | Revise deployment from Kubernetes to rootless Podman Quadlet with symlinked units | `[x]` | `docs(deploy): replace Kubernetes with rootless Podman Quadlet` |
 | T-010 | Record approved/deferred decisions and expand the user-model options | `[x]` | `docs(spec): record decisions and expand user model options` |
 | T-011 | Update README for multi-workspace budgeting and the miniPC target | `[x]` | `docs: mention multi-workspace budgeting in README` |
@@ -87,7 +88,7 @@ progress. No feature milestone has started.
 | T-405 | Operational runbook, health checks, journald logging, and upgrade/rollback steps | `[ ]` | — |
 | T-406 | Install docs for symlinking units into `~/.config/containers/systemd`, lingering, start, and uninstall | `[ ]` | — |
 
-## Open decisions blocking T-006
+## Decisions (D1–D13)
 
 These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 
@@ -118,3 +119,4 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 | 2026-11-02 | Deployment revised to rootless Podman Quadlet; decisions prioritized. |
 | 2026-11-02 | D1/D3/D4 approved; D5/D7 deferred; D2 options expanded; D6 moved to miniPC. |
 | 2026-11-02 | D2 approved as multi-workspace; miniPC details confirmed; tailnet hostname proposed. |
+| 2026-11-02 | T-005 approved; T-007 scaffolded the Go API, SvelteKit UI, and Makefile quality gates. |

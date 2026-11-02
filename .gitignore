@@ -1,0 +1,40 @@
+# Build output
+/bin/
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Local runtime data
+/.local/
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Node
+node_modules/
+web/node_modules/
+web/.svelte-kit/
+web/build/
+web/.vite/
+web/coverage/
+web/test-results/
+web/playwright-report/
+
+# Environment
+.env
+.env.*
+!.env.example
+!**/*.env.example
+
+# Tooling caches
+.eslintcache
+.pnpm-store/
+pnpm-debug.log*
+
+# Editor and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
