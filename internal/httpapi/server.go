@@ -5,9 +5,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -317,13 +319,23 @@ func registerTagRoutes(mux *http.ServeMux, svc *tags.Service) {
 func registerTransactionRoutes(mux *http.ServeMux, svc *transactions.Service) {
 	mux.HandleFunc("GET /api/v1/transactions", func(w http.ResponseWriter, r *http.Request) {
 		ws := workspaceID(r)
-		f := transactions.Filter{AccountID: r.URL.Query().Get("account_id"), TagID: r.URL.Query().Get("tag_id"), From: r.URL.Query().Get("from"), To: r.URL.Query().Get("to")}
-		list, err := svc.List(r.Context(), ws, f)
+		f, err := parseTransactionFilter(r)
 		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		page, err := svc.ListPage(r.Context(), ws, f)
+		if err != nil {
+			if errors.Is(err, transactions.ErrInvalidFilter) ||
+				errors.Is(err, transactions.ErrInvalidSort) ||
+				errors.Is(err, transactions.ErrInvalidCursor) {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"transactions": list})
+		writeJSON(w, http.StatusOK, page)
 	})
 	mux.HandleFunc("POST /api/v1/transactions", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -363,17 +375,19 @@ func registerTransactionRoutes(mux *http.ServeMux, svc *transactions.Service) {
 	mux.HandleFunc("PATCH /api/v1/transactions/{id}", func(w http.ResponseWriter, r *http.Request) {
 		ws := workspaceID(r)
 		var body struct {
+			AccountID   *string   `json:"account_id"`
 			AmountMinor *int64    `json:"amount_minor"`
 			OccurredAt  *string   `json:"occurred_at"`
 			Description *string   `json:"description"`
 			Notes       *string   `json:"notes"`
+			Source      *string   `json:"source"`
 			TagIDs      *[]string `json:"tag_ids"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid json")
 			return
 		}
-		t, err := svc.Update(r.Context(), ws, r.PathValue("id"), transactions.UpdateInput{AmountMinor: body.AmountMinor, OccurredAt: body.OccurredAt, Description: body.Description, Notes: body.Notes, TagIDs: body.TagIDs})
+		t, err := svc.Update(r.Context(), ws, r.PathValue("id"), transactions.UpdateInput{AccountID: body.AccountID, AmountMinor: body.AmountMinor, OccurredAt: body.OccurredAt, Description: body.Description, Notes: body.Notes, Source: body.Source, TagIDs: body.TagIDs})
 		if err != nil {
 			if err == transactions.ErrNotFound {
 				writeError(w, http.StatusNotFound, "not found")
@@ -396,6 +410,122 @@ func registerTransactionRoutes(mux *http.ServeMux, svc *transactions.Service) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+}
+
+// parseTransactionFilter validates and normalizes the list query. Date-only
+// bounds are widened to whole UTC days so a `to` filter includes the whole day.
+func parseTransactionFilter(r *http.Request) (transactions.Filter, error) {
+	query := r.URL.Query()
+	f := transactions.Filter{
+		AccountID: query.Get("account_id"),
+		TagIDs:    append([]string{}, query["tag"]...),
+		Query:     strings.TrimSpace(query.Get("q")),
+		Source:    query.Get("source"),
+		Sort:      query.Get("sort"),
+		Cursor:    query.Get("cursor"),
+		Limit:     50,
+	}
+	if legacyTag := query.Get("tag_id"); legacyTag != "" {
+		f.TagIDs = append(f.TagIDs, legacyTag)
+	}
+	f.TagIDs = uniqueStrings(f.TagIDs)
+
+	if raw := query.Get("from"); raw != "" {
+		value, err := normalizeRangeBound(raw, false)
+		if err != nil {
+			return transactions.Filter{}, fmt.Errorf("from %w", err)
+		}
+		f.From = value
+	}
+	if raw := query.Get("to"); raw != "" {
+		value, err := normalizeRangeBound(raw, true)
+		if err != nil {
+			return transactions.Filter{}, fmt.Errorf("to %w", err)
+		}
+		f.To = value
+	}
+	if f.From != "" && f.To != "" && f.From > f.To {
+		return transactions.Filter{}, fmt.Errorf("from must not be after to")
+	}
+
+	minAmount, err := parseOptionalInt64(query.Get("min_amount_minor"), "min_amount_minor")
+	if err != nil {
+		return transactions.Filter{}, err
+	}
+	maxAmount, err := parseOptionalInt64(query.Get("max_amount_minor"), "max_amount_minor")
+	if err != nil {
+		return transactions.Filter{}, err
+	}
+	f.MinAmountMinor = minAmount
+	f.MaxAmountMinor = maxAmount
+
+	if len(f.Query) > 200 {
+		return transactions.Filter{}, fmt.Errorf("q must be 200 characters or fewer")
+	}
+	if len(f.TagIDs) > 20 {
+		return transactions.Filter{}, fmt.Errorf("at most 20 tag filters are allowed")
+	}
+
+	if raw, ok := query["include_transfers"]; ok && len(raw) > 0 {
+		include, err := strconv.ParseBool(raw[len(raw)-1])
+		if err != nil {
+			return transactions.Filter{}, fmt.Errorf("include_transfers must be true or false")
+		}
+		f.ExcludeTransfers = !include
+	} else {
+		f.ExcludeTransfers = true
+	}
+
+	if raw := query.Get("limit"); raw != "" {
+		limit, err := strconv.Atoi(raw)
+		if err != nil || limit < 1 || limit > transactions.MaxListLimit {
+			return transactions.Filter{}, fmt.Errorf("limit must be between 1 and %d", transactions.MaxListLimit)
+		}
+		f.Limit = limit
+	}
+	return f, nil
+}
+
+func uniqueStrings(values []string) []string {
+	seen := make(map[string]bool, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	return out
+}
+
+func parseOptionalInt64(raw, name string) (*int64, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("%s must be an integer", name)
+	}
+	return &value, nil
+}
+
+func normalizeRangeBound(raw string, endOfDay bool) (string, error) {
+	if len(raw) == len("2006-01-02") {
+		day, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return "", fmt.Errorf("must be YYYY-MM-DD or an RFC 3339 timestamp")
+		}
+		if endOfDay {
+			day = day.Add(24*time.Hour - time.Second)
+		}
+		return day.Format(time.RFC3339), nil
+	}
+	value, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return "", fmt.Errorf("must be YYYY-MM-DD or an RFC 3339 timestamp")
+	}
+	return value.UTC().Format(time.RFC3339), nil
 }
 
 func workspaceID(r *http.Request) string {

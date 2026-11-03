@@ -141,29 +141,91 @@ paths:
           required: false
           schema:
             type: string
-        - name: account_id
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: tag_id
-          in: query
-          required: false
-          schema:
-            type: string
         - name: from
           in: query
-          required: false
+          description: Inclusive lower bound; a date-only value starts at 00:00:00 UTC.
           schema:
             type: string
         - name: to
           in: query
-          required: false
+          description: Inclusive upper bound; a date-only value ends at 23:59:59 UTC.
+          schema:
+            type: string
+        - name: account_id
+          in: query
+          schema:
+            type: string
+        - name: tag
+          in: query
+          description: Repeated tag IDs are matched with OR semantics.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+        - name: min_amount_minor
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: max_amount_minor
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: q
+          in: query
+          description: Case-insensitive search across description and notes.
+          schema:
+            type: string
+            maxLength: 200
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum:
+              - manual
+              - whatsapp
+              - mcp
+              - receipt
+              - import
+        - name: include_transfers
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - occurred_at
+              - "-occurred_at"
+              - amount_minor
+              - "-amount_minor"
+            default: "-occurred_at"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          description: Opaque cursor from a previous response's `next_cursor`.
           schema:
             type: string
       responses:
         "200":
-          description: List of transactions
+          description: A page of transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionPage"
+        "400":
+          description: Invalid filter, sort, limit, or cursor
     post:
       summary: Create transaction
       requestBody:
@@ -171,10 +233,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/CreateTransactionInput"
+              $ref: "#/components/schemas/CreateTransactionInput"
       responses:
         "201":
           description: Transaction created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
         "400":
           description: Bad request
   /api/v1/transactions/{id}:
@@ -194,6 +260,10 @@ paths:
       responses:
         "200":
           description: Transaction details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
         "404":
           description: Not found
     patch:
@@ -209,10 +279,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/UpdateTransactionInput"
+              $ref: "#/components/schemas/UpdateTransactionInput"
       responses:
         "200":
           description: Updated transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
         "404":
           description: Not found
         "400":
@@ -508,6 +582,7 @@ components:
           type: string
         amount_minor:
           type: integer
+          format: int64
         occurred_at:
           type: string
           format: date-time
@@ -520,7 +595,9 @@ components:
           enum:
             - manual
             - whatsapp
+            - mcp
             - receipt
+            - import
         tag_ids:
           type: array
           items:
@@ -528,11 +605,35 @@ components:
         transfer_id:
           type: string
           nullable: true
-    UpdateTransactionInput:
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TransactionPage:
       type: object
+      required:
+        - transactions
       properties:
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+        next_cursor:
+          type: string
+          description: Omit when this is the last page.
+    CreateTransactionInput:
+      type: object
+      required:
+        - account_id
+        - amount_minor
+      properties:
+        account_id:
+          type: string
         amount_minor:
           type: integer
+          format: int64
         occurred_at:
           type: string
           format: date-time
@@ -540,6 +641,42 @@ components:
           type: string
         notes:
           type: string
+        source:
+          type: string
+          enum:
+            - manual
+            - whatsapp
+            - mcp
+            - receipt
+            - import
+          default: manual
+        tag_ids:
+          type: array
+          items:
+            type: string
+    UpdateTransactionInput:
+      type: object
+      properties:
+        account_id:
+          type: string
+        amount_minor:
+          type: integer
+          format: int64
+        occurred_at:
+          type: string
+          format: date-time
+        description:
+          type: string
+        notes:
+          type: string
+        source:
+          type: string
+          enum:
+            - manual
+            - whatsapp
+            - mcp
+            - receipt
+            - import
         tag_ids:
           type: array
           items:

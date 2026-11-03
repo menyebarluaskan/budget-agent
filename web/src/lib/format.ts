@@ -114,6 +114,60 @@ export function monthRange(year: number, monthIndex: number): DateRange {
 	};
 }
 
+/** Today's UTC date as `YYYY-MM-DD`, suitable for date inputs. */
+export function todayISODate(now = new Date()): string {
+	return toISODate(now);
+}
+
+/** The UTC calendar date of an RFC 3339 timestamp. */
+export function dateOnlyFromTimestamp(value: string): string {
+	const date = toDate(value);
+	return date ? toISODate(date) : value.slice(0, 10);
+}
+
+/**
+ * Turn a date-input value into a stable RFC 3339 timestamp. Noon UTC keeps the
+ * calendar date intact for most timezones while remaining a valid timestamp.
+ */
+export function occurredAtFromDate(value: string): string {
+	return `${value}T12:00:00Z`;
+}
+
+/**
+ * Parse a signed major-unit amount into integer minor units. Returns `null` for
+ * malformed input or more fractional digits than the currency supports.
+ */
+export function parseMoneyToMinor(value: string, digits: number): number | null {
+	const normalized = value.trim().replace(/[,\s]/g, '');
+	const match = /^([+-])?(\d+)(?:\.(\d*))?$/.exec(normalized);
+	if (!match) {
+		return null;
+	}
+
+	const [, sign, whole, fraction = ''] = match;
+	if (fraction.length > digits) {
+		return null;
+	}
+	const paddedFraction = digits > 0 ? fraction.padEnd(digits, '0') : '';
+	const minor = Number(whole) * 10 ** digits + (paddedFraction ? Number(paddedFraction) : 0);
+	if (!Number.isSafeInteger(minor)) {
+		return null;
+	}
+	return sign === '-' ? -minor : minor;
+}
+
+/** Render integer minor units for a signed amount input. */
+export function formatMinorForInput(minor: number, digits: number): string {
+	const sign = minor < 0 ? '-' : '';
+	const absolute = Math.abs(minor);
+	if (digits === 0) {
+		return `${sign}${absolute}`;
+	}
+	const whole = Math.floor(absolute / 10 ** digits);
+	const fraction = String(absolute % 10 ** digits).padStart(digits, '0');
+	return `${sign}${whole}.${fraction}`;
+}
+
 /** Move a cursor by whole months, clamped to the first day of the month. */
 export function shiftMonth(date: Date, delta: number): Date {
 	return new Date(date.getFullYear(), date.getMonth() + delta, 1);

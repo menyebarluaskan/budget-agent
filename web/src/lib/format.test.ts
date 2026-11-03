@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
 	currencyFractionDigits,
+	dateOnlyFromTimestamp,
 	formatDate,
 	formatDateRange,
+	formatMinorForInput,
 	formatMoney,
 	formatMonthYear,
 	formatSignedMoney,
 	monthRange,
-	shiftMonth
+	occurredAtFromDate,
+	parseMoneyToMinor,
+	shiftMonth,
+	todayISODate
 } from './format';
 
 describe('money formatting', () => {
@@ -32,6 +37,27 @@ describe('money formatting', () => {
 		expect(formatSignedMoney(10_000, 'IDR')).toBe('+IDR 10,000');
 		expect(formatSignedMoney(-30_000, 'IDR')).toBe('-IDR 30,000');
 	});
+
+	it('parses signed major units into minor units', () => {
+		expect(parseMoneyToMinor('-12.50', 2)).toBe(-1250);
+		expect(parseMoneyToMinor('+2500', 0)).toBe(2500);
+		expect(parseMoneyToMinor('1,234.5', 2)).toBe(123450);
+		expect(parseMoneyToMinor('-0.01', 2)).toBe(-1);
+	});
+
+	it('rejects malformed or over-precise amounts', () => {
+		expect(parseMoneyToMinor('', 2)).toBeNull();
+		expect(parseMoneyToMinor('12.345', 2)).toBeNull();
+		expect(parseMoneyToMinor('12.5', 0)).toBeNull();
+		expect(parseMoneyToMinor('abc', 2)).toBeNull();
+		expect(parseMoneyToMinor('1.2.3', 2)).toBeNull();
+	});
+
+	it('renders minor units for an amount input', () => {
+		expect(formatMinorForInput(-1250, 2)).toBe('-12.50');
+		expect(formatMinorForInput(2500, 0)).toBe('2500');
+		expect(formatMinorForInput(5, 2)).toBe('0.05');
+	});
 });
 
 describe('date formatting', () => {
@@ -47,6 +73,12 @@ describe('date formatting', () => {
 
 	it('keeps both months when a range spans a boundary', () => {
 		expect(formatDateRange('2026-11-01', '2026-12-31')).toBe('Nov 1, 2026 – Dec 31, 2026');
+	});
+
+	it('converts between date inputs and timestamps', () => {
+		expect(occurredAtFromDate('2026-11-05')).toBe('2026-11-05T12:00:00Z');
+		expect(dateOnlyFromTimestamp('2026-11-05T12:00:00Z')).toBe('2026-11-05');
+		expect(todayISODate(new Date('2026-11-05T23:00:00Z'))).toBe('2026-11-05');
 	});
 });
 

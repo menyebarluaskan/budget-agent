@@ -108,7 +108,7 @@ Key decisions:
 | Database | **SQLite** via `modernc.org/sqlite` (pure Go) | Single file, CGO-free builds, tiny operational footprint. |
 | Queries | `database/sql` + **sqlc** | Compile-time checked SQL without an ORM. |
 | Migrations | **goose** (library mode), embedded SQL files | Simple, ordered, works with SQLite. |
-| Frontend | **SvelteKit 2 / Svelte 5**, TypeScript, static adapter | Small output, excellent mobile ergonomics, no Node runtime in production. |
+| Frontend | **SvelteKit 2 / Svelte 5**, TypeScript, static adapter with an SPA fallback | Small output, dynamic detail routes, no Node runtime in production. |
 | Styling/UI | **Tailwind CSS 4** + `shadcn-svelte` (bits-ui) | Consistent accessible primitives without a heavy component framework. |
 | Charts | **LayerChart** (Svelte-native) or small hand-rolled SVG | Avoids a large charting runtime; keep the option open after a spike. |
 | PWA | `vite-plugin-pwa` | Installable UI, cached shell, read-only offline behavior. |
@@ -319,12 +319,15 @@ Also: `POST /webhooks/whatsapp`, `GET /webhooks/whatsapp` (verification), and
 - `GET /dashboard` accepts an inclusive `from`/`to` date pair; both default to
   the first and last day of the current month. The response excludes transfers
   from income, expense, and budget totals but includes them in the recent list.
-- `GET /transactions` filters: `from`, `to` (inclusive dates), `account_id`,
-  repeated `tag`, `min_amount_minor`, `max_amount_minor`, `q`, `source`,
-  `include_transfers`.
+- `GET /transactions` filters: `from`, `to` (inclusive dates; date-only
+  bounds cover the whole UTC day), `account_id`, repeated `tag`,
+  `min_amount_minor`, `max_amount_minor`, `q` (description and notes), `source`,
+  and `include_transfers` (default `false`).
 - Pagination: `limit` (default 50, max 200) plus an opaque `cursor`; responses
-  include `next_cursor`.
-- Sorting: `sort=occurred_at|-occurred_at|amount_minor|-amount_minor`.
+  include `next_cursor`. Cursors carry the active sort so a cursor cannot be
+  reused with a different order.
+- Sorting: `sort=occurred_at|-occurred_at|amount_minor|-amount_minor`; the
+  default is `-occurred_at`. IDs break ties so pages stay stable.
 - Write requests accept `Idempotency-Key`; the response is cached per key for 24
   hours.
 - Validation failures return `400` with field-level details. Missing resources
@@ -443,6 +446,9 @@ type Provider interface {
 - Simulation: adjust a budget or hypothetical spend locally and show the effect
   without writing data.
 - Empty, loading, and error states are designed, not afterthoughts.
+- The static build uses an `index.html` fallback so dynamic routes such as
+  `/transactions/[id]` resolve on a direct load or reload. Routing stays on the
+  client; the API remains the only data boundary.
 - Accessibility: keyboard navigation, visible focus, labeled controls, and
   color-independent status cues.
 
