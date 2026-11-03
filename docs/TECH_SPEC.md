@@ -298,6 +298,7 @@ Errors use RFC 9457 `application/problem+json`.
 | `PATCH` | `/budgets/{id}` | Update |
 | `DELETE` | `/budgets/{id}` | Delete |
 | `GET` | `/budgets/{id}/summary` | Period progress |
+| `GET` | `/dashboard` | Balance, period spending, budget progress, recent transactions |
 | `GET` | `/summary` | Income, expense, net, by tag/account |
 | `GET` | `/recommendations` | Rule-based spending guidance |
 | `POST` | `/receipts` | Upload an image and start OCR |
@@ -315,6 +316,9 @@ Also: `POST /webhooks/whatsapp`, `GET /webhooks/whatsapp` (verification), and
 
 ### 6.2 Query conventions
 
+- `GET /dashboard` accepts an inclusive `from`/`to` date pair; both default to
+  the first and last day of the current month. The response excludes transfers
+  from income, expense, and budget totals but includes them in the recent list.
 - `GET /transactions` filters: `from`, `to` (inclusive dates), `account_id`,
   repeated `tag`, `min_amount_minor`, `max_amount_minor`, `q`, `source`,
   `include_transfers`.

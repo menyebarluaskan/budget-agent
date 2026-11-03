@@ -20,6 +20,7 @@ type Transaction struct {
 	Notes       string   `json:"notes"`
 	Source      string   `json:"source"`
 	TagIDs      []string `json:"tag_ids"`
+	TransferID  *string  `json:"transfer_id,omitempty"`
 	CreatedAt   string   `json:"created_at"`
 	UpdatedAt   string   `json:"updated_at"`
 }
@@ -59,7 +60,7 @@ func nowUTC() string { return time.Now().UTC().Format(time.RFC3339) }
 var ErrNotFound = errors.New("not found")
 
 func (s *Service) List(ctx context.Context, workspaceID string, f Filter) ([]Transaction, error) {
-	q := `SELECT id, workspace_id, account_id, amount_minor, occurred_at, description, notes, source, created_at, updated_at FROM transactions WHERE workspace_id = ?`
+	q := `SELECT id, workspace_id, account_id, amount_minor, occurred_at, description, notes, source, transfer_id, created_at, updated_at FROM transactions WHERE workspace_id = ?`
 	args := []any{workspaceID}
 	if f.AccountID != "" {
 		q += " AND account_id = ?"
@@ -86,18 +87,27 @@ func (s *Service) List(ctx context.Context, workspaceID string, f Filter) ([]Tra
 	var out []Transaction
 	for rows.Next() {
 		var t Transaction
-		if err := rows.Scan(&t.ID, &t.WorkspaceID, &t.AccountID, &t.AmountMinor, &t.OccurredAt, &t.Description, &t.Notes, &t.Source, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		var transferID sql.NullString
+		if err := rows.Scan(&t.ID, &t.WorkspaceID, &t.AccountID, &t.AmountMinor, &t.OccurredAt, &t.Description, &t.Notes, &t.Source, &transferID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
-		tags, _ := s.tagIDs(ctx, t.ID)
-		t.TagIDs = tags
-		if t.TagIDs == nil {
-			t.TagIDs = []string{}
+		if transferID.Valid {
+			t.TransferID = &transferID.String
 		}
 		out = append(out, t)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		tags, err := s.tagIDs(ctx, out[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		out[i].TagIDs = tags
 	}
 	if out == nil {
 		out = []Transaction{}
@@ -124,12 +134,16 @@ func (s *Service) tagIDs(ctx context.Context, txID string) ([]string, error) {
 
 func (s *Service) Get(ctx context.Context, workspaceID, id string) (Transaction, error) {
 	var t Transaction
-	err := s.db.QueryRowContext(ctx, `SELECT id, workspace_id, account_id, amount_minor, occurred_at, description, notes, source, created_at, updated_at FROM transactions WHERE id = ? AND workspace_id = ?`, id, workspaceID).Scan(&t.ID, &t.WorkspaceID, &t.AccountID, &t.AmountMinor, &t.OccurredAt, &t.Description, &t.Notes, &t.Source, &t.CreatedAt, &t.UpdatedAt)
+	var transferID sql.NullString
+	err := s.db.QueryRowContext(ctx, `SELECT id, workspace_id, account_id, amount_minor, occurred_at, description, notes, source, transfer_id, created_at, updated_at FROM transactions WHERE id = ? AND workspace_id = ?`, id, workspaceID).Scan(&t.ID, &t.WorkspaceID, &t.AccountID, &t.AmountMinor, &t.OccurredAt, &t.Description, &t.Notes, &t.Source, &transferID, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Transaction{}, ErrNotFound
 		}
 		return Transaction{}, err
+	}
+	if transferID.Valid {
+		t.TransferID = &transferID.String
 	}
 	tags, _ := s.tagIDs(ctx, t.ID)
 	t.TagIDs = tags

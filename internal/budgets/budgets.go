@@ -11,17 +11,18 @@ import (
 )
 
 type Budget struct {
-	ID          string  `json:"id"`
-	WorkspaceID string  `json:"workspace_id"`
-	Name        string  `json:"name"`
-	AmountMinor int64   `json:"amount_minor"`
-	Period      string  `json:"period"`
-	StartDate   string  `json:"start_date"`
-	EndDate     *string `json:"end_date,omitempty"`
-	Rollover    bool    `json:"rollover"`
-	AccountID   *string `json:"account_id,omitempty"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	ID          string   `json:"id"`
+	WorkspaceID string   `json:"workspace_id"`
+	Name        string   `json:"name"`
+	AmountMinor int64    `json:"amount_minor"`
+	Period      string   `json:"period"`
+	StartDate   string   `json:"start_date"`
+	EndDate     *string  `json:"end_date,omitempty"`
+	Rollover    bool     `json:"rollover"`
+	AccountID   *string  `json:"account_id,omitempty"`
+	TagIDs      []string `json:"tag_ids"`
+	CreatedAt   string   `json:"created_at"`
+	UpdatedAt   string   `json:"updated_at"`
 }
 
 type CreateInput struct {
@@ -33,6 +34,7 @@ type CreateInput struct {
 	EndDate     *string
 	Rollover    bool
 	AccountID   *string
+	TagIDs      []string
 }
 
 type UpdateInput struct {
@@ -43,6 +45,7 @@ type UpdateInput struct {
 	EndDate     *string
 	Rollover    *bool
 	AccountID   *string
+	TagIDs      *[]string
 }
 
 type Service struct {
@@ -79,6 +82,16 @@ func (s *Service) List(ctx context.Context, workspaceID string) ([]Budget, error
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		tags, err := s.tagIDs(ctx, out[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		out[i].TagIDs = tags
+	}
 	if out == nil {
 		out = []Budget{}
 	}
@@ -103,6 +116,11 @@ func (s *Service) Get(ctx context.Context, workspaceID, id string) (Budget, erro
 	} else {
 		b.EndDate = nil
 	}
+	tags, err := s.tagIDs(ctx, b.ID)
+	if err != nil {
+		return Budget{}, err
+	}
+	b.TagIDs = tags
 	return b, nil
 }
 
@@ -122,7 +140,40 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Budget, error) {
 	if err != nil {
 		return Budget{}, err
 	}
+	if err := s.setTags(ctx, id, in.TagIDs); err != nil {
+		return Budget{}, err
+	}
 	return s.Get(ctx, in.WorkspaceID, id)
+}
+
+func (s *Service) tagIDs(ctx context.Context, budgetID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT tag_id FROM budget_tags WHERE budget_id = ? ORDER BY tag_id`, budgetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+func (s *Service) setTags(ctx context.Context, budgetID string, tagIDs []string) error {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM budget_tags WHERE budget_id = ?`, budgetID); err != nil {
+		return err
+	}
+	for _, tagID := range tagIDs {
+		if _, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO budget_tags (budget_id, tag_id) VALUES (?,?)`, budgetID, tagID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) Update(ctx context.Context, workspaceID, id string, in UpdateInput) (Budget, error) {
@@ -157,6 +208,11 @@ func (s *Service) Update(ctx context.Context, workspaceID, id string, in UpdateI
 		b.Name, b.AmountMinor, b.Period, b.StartDate, b.EndDate, b.Rollover, b.AccountID, now, id, workspaceID)
 	if err != nil {
 		return Budget{}, err
+	}
+	if in.TagIDs != nil {
+		if err := s.setTags(ctx, id, *in.TagIDs); err != nil {
+			return Budget{}, err
+		}
 	}
 	return s.Get(ctx, workspaceID, id)
 }

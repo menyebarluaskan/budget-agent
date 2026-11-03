@@ -1,5 +1,13 @@
 export type IconName =
-	'accounts' | 'budgets' | 'home' | 'plus' | 'settings' | 'sparkles' | 'transactions';
+	| 'accounts'
+	| 'budgets'
+	| 'chevron-left'
+	| 'chevron-right'
+	| 'home'
+	| 'plus'
+	| 'settings'
+	| 'sparkles'
+	| 'transactions';
 
 /**
  * Single-path, 24px outline icons. Keeping the paths inline avoids an icon
@@ -10,6 +18,8 @@ export const iconPaths: Record<IconName, string[]> = {
 		'M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3'
 	],
 	budgets: ['M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z', 'M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z'],
+	'chevron-left': ['M15.75 19.5 8.25 12l7.5-7.5'],
+	'chevron-right': ['m8.25 4.5 7.5 7.5-7.5 7.5'],
 	home: [
 		'M2.25 12l8.954-8.955a1.126 1.126 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75'
 	],

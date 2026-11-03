@@ -23,8 +23,9 @@ Live progress tracker for **Integrated Personal Budget**.
 
 ## Current phase
 
-**Phase 3 — Web frontend.** Backend core (M1) is complete. M2 starts with the
-app shell, design tokens, and responsive navigation (`T-201`).
+**Phase 3 — Web frontend.** Backend core (M1) is complete. The app shell and
+dashboard are in place; transaction, budget, and account management screens are
+next.
 
 ## Milestone 0 — Project foundations
 
@@ -60,7 +61,7 @@ app shell, design tokens, and responsive navigation (`T-201`).
 | ID | Task | Status | Commit |
 | --- | --- | --- | --- |
 | T-201 | Frontend scaffold, design tokens, and responsive layout | `[x]` | `feat(web): add app shell and responsive navigation` |
-| T-202 | Dashboard with balance, spending, and budget widgets | `[ ]` | — |
+| T-202 | Dashboard with balance, spending, and budget widgets | `[x]` | `feat(web): add dashboard widgets and aggregate API` |
 | T-203 | Transaction list, filters, and create/edit flow | `[ ]` | — |
 | T-204 | Budget and account management screens | `[ ]` | — |
 | T-205 | Spending charts and what-if simulation | `[ ]` | — |
@@ -123,3 +124,4 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 | 2026-11-02 | D11 resolved and T-008 added the GitHub Actions CI quality gate. |
 | 2026-11-02 | D10 resolved as MIT; M0 foundation complete. |
 | 2026-11-03 | M1 backend core complete; T-201 added the app shell, design tokens, and responsive navigation. |
+| 2026-11-03 | T-202 dashboard and aggregate API completed. |

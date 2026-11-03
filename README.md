@@ -5,9 +5,9 @@ containerized service with its own pod and a Tailscale sidecar, exposes an HTTP
 API, and ships a mobile-friendly web UI. AI agents and a WhatsApp bot use the
 same API through MCP.
 
-> **Status: implementation phase.** The backend core is complete, and the web UI
-> shell with responsive navigation is in place. Feature screens and the AI/MCP
-> milestones are next. See [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md) and
+> **Status: implementation phase.** The backend core and the budgeting dashboard
+> are complete. Transaction, budget, and account management screens plus the
+> AI/MCP milestones are next. See [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md) and
 > [`TASKS.md`](TASKS.md).
 
 ## Goals
@@ -88,7 +88,7 @@ The full rationale, data model, API surface, security rules, and decisions are i
 | --- | --- |
 | M0 — Specification and foundations | Complete: spec approved, scaffolded, CI green, MIT licensed |
 | M1 — Backend core | Complete: workspace schema, accounts, tags, transactions, budgets, summaries, auth, OpenAPI |
-| M2 — Web frontend | In progress: app shell and responsive navigation |
+| M2 — Web frontend | In progress: app shell, responsive navigation, and dashboard |
 | M3 — AI, MCP, WhatsApp | Not started |
 | M4 — Deployment and operations | Not started |
 

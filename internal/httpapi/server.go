@@ -13,6 +13,7 @@ import (
 
 	"budget-agent/internal/accounts"
 	"budget-agent/internal/budgets"
+	"budget-agent/internal/dashboard"
 	"budget-agent/internal/tags"
 	"budget-agent/internal/transactions"
 )
@@ -98,11 +99,12 @@ func rateLimitMiddleware(next http.Handler, tokens *rateLimitTracker) http.Handl
 }
 
 type Options struct {
-	Logger      *slog.Logger
-	Ready       func(context.Context) error
-	DB          *sql.DB
-	AuthMode    string
-	TokenPepper string
+	Logger          *slog.Logger
+	Ready           func(context.Context) error
+	DB              *sql.DB
+	AuthMode        string
+	TokenPepper     string
+	DefaultCurrency string
 }
 
 type statusResponse struct {
@@ -141,6 +143,7 @@ func New(opts Options) http.Handler {
 		registerTransactionRoutes(mux, txsvc)
 		bsvc := budgets.NewService(opts.DB)
 		registerBudgetRoutes(mux, bsvc)
+		registerDashboardRoutes(mux, dashboard.NewService(opts.DB, opts.DefaultCurrency))
 	}
 	return withMiddleware(logger, mux)
 }
@@ -414,13 +417,14 @@ func registerBudgetRoutes(mux *http.ServeMux, svc *budgets.Service) {
 	})
 	mux.HandleFunc("POST /api/v1/budgets", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Name        string  `json:"name"`
-			AmountMinor int64   `json:"amount_minor"`
-			Period      string  `json:"period"`
-			StartDate   string  `json:"start_date"`
-			EndDate     *string `json:"end_date,omitempty"`
-			Rollover    bool    `json:"rollover"`
-			AccountID   *string `json:"account_id,omitempty"`
+			Name        string   `json:"name"`
+			AmountMinor int64    `json:"amount_minor"`
+			Period      string   `json:"period"`
+			StartDate   string   `json:"start_date"`
+			EndDate     *string  `json:"end_date,omitempty"`
+			Rollover    bool     `json:"rollover"`
+			AccountID   *string  `json:"account_id,omitempty"`
+			TagIDs      []string `json:"tag_ids"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid json")
@@ -436,6 +440,7 @@ func registerBudgetRoutes(mux *http.ServeMux, svc *budgets.Service) {
 			EndDate:     body.EndDate,
 			Rollover:    body.Rollover,
 			AccountID:   body.AccountID,
+			TagIDs:      body.TagIDs,
 		})
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -458,12 +463,14 @@ func registerBudgetRoutes(mux *http.ServeMux, svc *budgets.Service) {
 	})
 	mux.HandleFunc("PATCH /api/v1/budgets/{id}", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Name      *int64  `json:"amount_minor,omitempty"`
-			Period    *string `json:"period,omitempty"`
-			StartDate *string `json:"start_date,omitempty"`
-			EndDate   *string `json:"end_date,omitempty"`
-			Rollover  *bool   `json:"rollover,omitempty"`
-			AccountID *string `json:"account_id,omitempty"`
+			Name        *string   `json:"name,omitempty"`
+			AmountMinor *int64    `json:"amount_minor,omitempty"`
+			Period      *string   `json:"period,omitempty"`
+			StartDate   *string   `json:"start_date,omitempty"`
+			EndDate     *string   `json:"end_date,omitempty"`
+			Rollover    *bool     `json:"rollover,omitempty"`
+			AccountID   *string   `json:"account_id,omitempty"`
+			TagIDs      *[]string `json:"tag_ids,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid json")
@@ -471,13 +478,14 @@ func registerBudgetRoutes(mux *http.ServeMux, svc *budgets.Service) {
 		}
 		ws := workspaceID(r)
 		b, err := svc.Update(r.Context(), ws, r.PathValue("id"), budgets.UpdateInput{
-			Name:        nil,
-			AmountMinor: body.Name,
+			Name:        body.Name,
+			AmountMinor: body.AmountMinor,
 			Period:      body.Period,
 			StartDate:   body.StartDate,
 			EndDate:     body.EndDate,
 			Rollover:    body.Rollover,
 			AccountID:   body.AccountID,
+			TagIDs:      body.TagIDs,
 		})
 		if err != nil {
 			if err == budgets.ErrNotFound {
@@ -512,6 +520,47 @@ func registerBudgetRoutes(mux *http.ServeMux, svc *budgets.Service) {
 		writeJSON(w, http.StatusOK, map[string]any{"summary": summary})
 	})
 }
+func registerDashboardRoutes(mux *http.ServeMux, svc *dashboard.Service) {
+	mux.HandleFunc("GET /api/v1/dashboard", func(w http.ResponseWriter, r *http.Request) {
+		from, to, err := dashboardRange(r)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		result, err := svc.Build(r.Context(), workspaceID(r), from, to)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	})
+}
+
+func dashboardRange(r *http.Request) (time.Time, time.Time, error) {
+	fromRaw := r.URL.Query().Get("from")
+	toRaw := r.URL.Query().Get("to")
+	if fromRaw == "" && toRaw == "" {
+		now := time.Now().UTC()
+		from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+		return from, from.AddDate(0, 1, -1), nil
+	}
+	if fromRaw == "" || toRaw == "" {
+		return time.Time{}, time.Time{}, fmt.Errorf("from and to must be provided together")
+	}
+	from, err := time.Parse("2006-01-02", fromRaw)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("from must be YYYY-MM-DD")
+	}
+	to, err := time.Parse("2006-01-02", toRaw)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("to must be YYYY-MM-DD")
+	}
+	if from.After(to) {
+		return time.Time{}, time.Time{}, fmt.Errorf("from must not be after to")
+	}
+	return from, to, nil
+}
+
 func registerSpendingRoutes(mux *http.ServeMux, svc *transactions.Service) {
 	mux.HandleFunc("GET /api/v1/spending/summary", func(w http.ResponseWriter, r *http.Request) {
 		ws := workspaceID(r)

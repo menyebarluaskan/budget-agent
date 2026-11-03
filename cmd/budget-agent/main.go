@@ -56,8 +56,13 @@ func run() error {
 
 	ready := func(ctx context.Context) error { return database.PingContext(ctx) }
 	server := &http.Server{
-		Addr:              cfg.Addr,
-		Handler:           httpapi.New(httpapi.Options{Logger: logger, Ready: ready, DB: database}),
+		Addr: cfg.Addr,
+		Handler: httpapi.New(httpapi.Options{
+			Logger:          logger,
+			Ready:           ready,
+			DB:              database,
+			DefaultCurrency: cfg.DefaultCurrency,
+		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

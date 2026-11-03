@@ -63,15 +63,20 @@ func (s *Service) List(ctx context.Context, workspaceID string) ([]Account, erro
 			return nil, err
 		}
 		a.Archived = archived == 1
-		bal, err := s.balance(ctx, a.ID, a.OpeningBalanceMinor)
-		if err != nil {
-			return nil, err
-		}
-		a.BalanceMinor = bal
 		out = append(out, a)
 	}
 	if err := rows2.Err(); err != nil {
 		return nil, err
+	}
+	if err := rows2.Close(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		bal, err := s.balance(ctx, out[i].ID, out[i].OpeningBalanceMinor)
+		if err != nil {
+			return nil, err
+		}
+		out[i].BalanceMinor = bal
 	}
 	if out == nil {
 		out = []Account{}

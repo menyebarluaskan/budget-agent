@@ -8,7 +8,12 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
+
+	"budget-agent/internal/accounts"
+	"budget-agent/internal/dashboard"
+	"budget-agent/internal/db"
 )
 
 func testLogger() *slog.Logger {
@@ -91,6 +96,88 @@ func TestUnknownRoute(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestDashboardBuildsReadModel(t *testing.T) {
+	ctx := context.Background()
+	database, err := db.Open(filepath.Join(t.TempDir(), "budget.db"))
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer database.Close()
+	if err := db.Migrate(database); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if err := accounts.EnsureDefaultWorkspace(ctx, database); err != nil {
+		t.Fatalf("bootstrap workspace: %v", err)
+	}
+	if _, err := database.Exec(`
+		INSERT INTO accounts (id, workspace_id, name, type, currency, opening_balance_minor, archived, created_at, updated_at)
+		VALUES ('w1','default','Wallet','wallet','IDR',100000,0,'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')`); err != nil {
+		t.Fatalf("seed account: %v", err)
+	}
+	if _, err := database.Exec(`
+		INSERT INTO transactions (id, workspace_id, account_id, amount_minor, occurred_at, description, notes, source, transfer_id, created_at, updated_at)
+		VALUES ('t1','default','w1',-25000,'2026-11-05T10:00:00Z','Groceries','','manual',NULL,'2026-11-05T10:00:00Z','2026-11-05T10:00:00Z')`); err != nil {
+		t.Fatalf("seed transaction: %v", err)
+	}
+
+	handler := New(Options{Logger: testLogger(), DB: database, DefaultCurrency: "IDR"})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/dashboard?from=2026-11-01&to=2026-11-30", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var result dashboard.Result
+	if err := json.NewDecoder(rec.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if result.Currency != "IDR" {
+		t.Errorf("currency = %q, want IDR", result.Currency)
+	}
+	if result.TotalBalanceMinor != 75000 {
+		t.Errorf("total balance = %d, want 75000", result.TotalBalanceMinor)
+	}
+	if result.ExpenseMinor != 25000 {
+		t.Errorf("expense = %d, want 25000", result.ExpenseMinor)
+	}
+	if len(result.RecentTransactions) != 1 || result.RecentTransactions[0].ID != "t1" {
+		t.Errorf("recent transactions = %+v, want t1", result.RecentTransactions)
+	}
+}
+
+func TestDashboardRejectsInvalidRange(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "budget.db"))
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer database.Close()
+	if err := db.Migrate(database); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	handler := New(Options{Logger: testLogger(), DB: database})
+
+	cases := []string{
+		"/api/v1/dashboard?from=2026-11-01",
+		"/api/v1/dashboard?to=2026-11-30",
+		"/api/v1/dashboard?from=2026-11-30&to=2026-11-01",
+		"/api/v1/dashboard?from=11-01-2026&to=2026-11-30",
+	}
+	for _, target := range cases {
+		t.Run(target, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, target, nil)
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+			}
+		})
 	}
 }
 

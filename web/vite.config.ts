@@ -4,6 +4,11 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	server: {
+		proxy: {
+			'/api': 'http://127.0.0.1:8080'
+		}
+	},
 	test: {
 		include: ['src/**/*.{test,spec}.{js,ts}'],
 		passWithNoTests: true

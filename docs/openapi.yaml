@@ -322,6 +322,38 @@ paths:
       responses:
         "200":
           description: Budget summary per tag
+  /api/v1/dashboard:
+    get:
+      summary: Get the dashboard read model
+      parameters:
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          description: Inclusive start date. Defaults to the first day of the current month.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: Inclusive end date. Must be provided with `from`.
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Dashboard totals, budget progress, and recent transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+        "400":
+          description: Invalid date range
   /api/v1/spending/summary:
     get:
       summary: Get spending summary
@@ -493,6 +525,9 @@ components:
           type: array
           items:
             type: string
+        transfer_id:
+          type: string
+          nullable: true
     UpdateTransactionInput:
       type: object
       properties:
@@ -533,6 +568,10 @@ components:
           type: boolean
         account_id:
           type: string
+        tag_ids:
+          type: array
+          items:
+            type: string
         created_at:
           type: string
         updated_at:
@@ -562,6 +601,10 @@ components:
           type: boolean
         account_id:
           type: string
+        tag_ids:
+          type: array
+          items:
+            type: string
     UpdateBudgetInput:
       type: object
       properties:
@@ -582,6 +625,10 @@ components:
           type: boolean
         account_id:
           type: string
+        tag_ids:
+          type: array
+          items:
+            type: string
     BudgetSummary:
       type: object
       properties:
@@ -627,3 +674,58 @@ components:
           type: object
           additionalProperties:
             type: integer
+    Dashboard:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        currency:
+          type: string
+        total_balance_minor:
+          type: integer
+        account_count:
+          type: integer
+        income_minor:
+          type: integer
+        expense_minor:
+          type: integer
+        net_minor:
+          type: integer
+        budgets:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetProgress"
+        recent_transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+    BudgetProgress:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        period:
+          type: string
+          enum:
+            - weekly
+            - monthly
+        amount_minor:
+          type: integer
+        spent_minor:
+          type: integer
+        remaining_minor:
+          type: integer
+        rollover:
+          type: boolean
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
