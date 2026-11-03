@@ -1,16 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	ApiError,
+	createAccount,
+	createBudget,
 	createTransaction,
+	createTransfer,
+	deleteAccount,
+	deleteBudget,
 	deleteTransaction,
+	getBudget,
 	getDashboard,
 	getTransaction,
 	listAccounts,
+	listBudgets,
 	listTags,
 	listTransactions,
+	updateAccount,
+	updateBudget,
 	updateTransaction
 } from './client';
-import type { Account, Dashboard, Tag, Transaction } from './types';
+import type { Account, Budget, Dashboard, Tag, Transaction } from './types';
 
 const dashboard: Dashboard = {
 	from: '2026-11-01',
@@ -209,5 +218,158 @@ describe('lookup API', () => {
 		const fetcher = vi.fn(async () => response({ tags: [tag] }));
 
 		await expect(listTags(fetcher)).resolves.toEqual([tag]);
+	});
+});
+
+const accountFixture: Account = {
+	id: 'w1',
+	workspace_id: 'default',
+	name: 'Wallet',
+	type: 'wallet',
+	currency: 'IDR',
+	opening_balance_minor: 0,
+	archived: false,
+	created_at: '2026-01-01T00:00:00Z',
+	updated_at: '2026-01-01T00:00:00Z',
+	balance_minor: 10000
+};
+
+describe('account API', () => {
+	it('creates an account', async () => {
+		const fetcher = vi.fn(async () => response(accountFixture, 201));
+
+		await createAccount(
+			{ name: 'Wallet', type: 'wallet', currency: 'IDR', opening_balance_minor: 0 },
+			fetcher
+		);
+
+		expect(fetcher).toHaveBeenCalledWith('/api/v1/accounts', {
+			method: 'POST',
+			headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				name: 'Wallet',
+				type: 'wallet',
+				currency: 'IDR',
+				opening_balance_minor: 0
+			})
+		});
+	});
+
+	it('updates an account', async () => {
+		const fetcher = vi.fn(async () => response(accountFixture));
+
+		await updateAccount('w1', { archived: true }, fetcher);
+
+		expect(fetcher).toHaveBeenCalledWith('/api/v1/accounts/w1', {
+			method: 'PATCH',
+			headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+			body: JSON.stringify({ archived: true })
+		});
+	});
+
+	it('deletes an account', async () => {
+		const fetcher = vi.fn(async () => new Response(null, { status: 204 }));
+
+		await expect(deleteAccount('w1', fetcher)).resolves.toBeUndefined();
+		expect(fetcher).toHaveBeenCalledWith('/api/v1/accounts/w1', {
+			method: 'DELETE',
+			headers: { Accept: 'application/json' }
+		});
+	});
+});
+
+describe('transfer API', () => {
+	it('posts both legs as one transfer', async () => {
+		const payload = {
+			from_account_id: 'w1',
+			to_account_id: 'w2',
+			amount_minor: 15000,
+			occurred_at: '2026-11-05T12:00:00Z',
+			description: 'Savings',
+			notes: ''
+		};
+		const transfer = { transfer_id: 'tr1', from: transaction, to: transaction };
+		const fetcher = vi.fn(async () => response(transfer, 201));
+
+		await expect(createTransfer(payload, fetcher)).resolves.toEqual(transfer);
+		expect(fetcher).toHaveBeenCalledWith('/api/v1/transfers', {
+			method: 'POST',
+			headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+	});
+});
+
+const budgetFixture: Budget = {
+	id: 'b1',
+	workspace_id: 'default',
+	name: 'Groceries',
+	amount_minor: 500000,
+	period: 'monthly',
+	start_date: '2026-11-01',
+	end_date: null,
+	rollover: true,
+	account_id: null,
+	tag_ids: ['food'],
+	created_at: '2026-11-01T00:00:00Z',
+	updated_at: '2026-11-01T00:00:00Z'
+};
+
+describe('budget API', () => {
+	it('lists budgets', async () => {
+		const fetcher = vi.fn(async () => response({ budgets: [budgetFixture] }));
+
+		await expect(listBudgets(fetcher)).resolves.toEqual([budgetFixture]);
+	});
+
+	it('gets one budget', async () => {
+		const fetcher = vi.fn(async () => response(budgetFixture));
+
+		await expect(getBudget('b 1', fetcher)).resolves.toEqual(budgetFixture);
+		expect(fetcher).toHaveBeenCalledWith('/api/v1/budgets/b%201', {
+			headers: { Accept: 'application/json' }
+		});
+	});
+
+	it('creates a budget', async () => {
+		const payload = {
+			name: 'Groceries',
+			amount_minor: 500000,
+			period: 'monthly' as const,
+			start_date: '2026-11-01',
+			rollover: true,
+			tag_ids: ['food']
+		};
+		const fetcher = vi.fn(async () => response(budgetFixture, 201));
+
+		await createBudget(payload, fetcher);
+
+		expect(fetcher).toHaveBeenCalledWith('/api/v1/budgets', {
+			method: 'POST',
+			headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+	});
+
+	it('updates a budget', async () => {
+		const fetcher = vi.fn(async () => response(budgetFixture));
+
+		await updateBudget('b1', { amount_minor: 600000, end_date: '' }, fetcher);
+
+		expect(fetcher).toHaveBeenCalledWith('/api/v1/budgets/b1', {
+			method: 'PATCH',
+			headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+			body: JSON.stringify({ amount_minor: 600000, end_date: '' })
+		});
+	});
+
+	it('deletes a budget', async () => {
+		const fetcher = vi.fn(async () => new Response(null, { status: 204 }));
+
+		await expect(deleteBudget('b1', fetcher)).resolves.toBeUndefined();
+		expect(fetcher).toHaveBeenCalledWith('/api/v1/budgets/b1', {
+			method: 'DELETE',
+			headers: { Accept: 'application/json' }
+		});
 	});
 });

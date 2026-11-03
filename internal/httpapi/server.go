@@ -410,6 +410,38 @@ func registerTransactionRoutes(mux *http.ServeMux, svc *transactions.Service) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("POST /api/v1/transfers", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			FromAccountID string `json:"from_account_id"`
+			ToAccountID   string `json:"to_account_id"`
+			AmountMinor   int64  `json:"amount_minor"`
+			OccurredAt    string `json:"occurred_at"`
+			Description   string `json:"description"`
+			Notes         string `json:"notes"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+		transfer, err := svc.CreateTransfer(r.Context(), transactions.TransferInput{
+			WorkspaceID:   workspaceID(r),
+			FromAccountID: body.FromAccountID,
+			ToAccountID:   body.ToAccountID,
+			AmountMinor:   body.AmountMinor,
+			OccurredAt:    body.OccurredAt,
+			Description:   body.Description,
+			Notes:         body.Notes,
+		})
+		if err != nil {
+			if errors.Is(err, transactions.ErrNotFound) {
+				writeError(w, http.StatusNotFound, err.Error())
+				return
+			}
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, transfer)
+	})
 }
 
 // parseTransactionFilter validates and normalizes the list query. Date-only

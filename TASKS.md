@@ -63,7 +63,7 @@ screens are next.
 | T-201 | Frontend scaffold, design tokens, and responsive layout | `[x]` | `feat(web): add app shell and responsive navigation` |
 | T-202 | Dashboard with balance, spending, and budget widgets | `[x]` | `feat(web): add dashboard widgets and aggregate API` |
 | T-203 | Transaction list, filters, and create/edit flow | `[x]` | `feat(web): add transaction list and create/edit flow` |
-| T-204 | Budget and account management screens | `[ ]` | — |
+| T-204 | Budget and account management screens | `[x]` | `feat(web): add budget and account management screens` |
 | T-205 | Spending charts and what-if simulation | `[ ]` | — |
 | T-206 | PWA polish, accessibility pass, and performance budget check | `[ ]` | — |
 | T-207 | Workspace switcher and personal/shared workspace UI, hidden until more than one workspace exists | `[ ]` | — |

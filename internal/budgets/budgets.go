@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -125,11 +126,19 @@ func (s *Service) Get(ctx context.Context, workspaceID, id string) (Budget, erro
 }
 
 func (s *Service) Create(ctx context.Context, in CreateInput) (Budget, error) {
-	if in.Name == "" {
-		return Budget{}, fmt.Errorf("name required")
+	b := Budget{
+		WorkspaceID: in.WorkspaceID,
+		Name:        in.Name,
+		AmountMinor: in.AmountMinor,
+		Period:      in.Period,
+		StartDate:   in.StartDate,
+		EndDate:     in.EndDate,
+		Rollover:    in.Rollover,
+		AccountID:   in.AccountID,
+		TagIDs:      in.TagIDs,
 	}
-	if in.Period != "weekly" && in.Period != "monthly" {
-		return Budget{}, fmt.Errorf("invalid period, must be 'weekly' or 'monthly'")
+	if err := validateBudget(b); err != nil {
+		return Budget{}, err
 	}
 	id := uuid.NewString()
 	now := nowUTC()
@@ -144,6 +153,36 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Budget, error) {
 		return Budget{}, err
 	}
 	return s.Get(ctx, in.WorkspaceID, id)
+}
+
+// validateBudget enforces the values the UI and API can safely persist.
+func validateBudget(b Budget) error {
+	if strings.TrimSpace(b.Name) == "" {
+		return fmt.Errorf("name required")
+	}
+	if b.AmountMinor <= 0 {
+		return fmt.Errorf("amount_minor must be greater than zero")
+	}
+	if b.Period != "weekly" && b.Period != "monthly" {
+		return fmt.Errorf("invalid period, must be 'weekly' or 'monthly'")
+	}
+	if b.StartDate == "" {
+		return fmt.Errorf("start_date is required")
+	}
+	start, err := time.Parse("2006-01-02", b.StartDate)
+	if err != nil {
+		return fmt.Errorf("start_date must be YYYY-MM-DD")
+	}
+	if b.EndDate != nil && *b.EndDate != "" {
+		end, err := time.Parse("2006-01-02", *b.EndDate)
+		if err != nil {
+			return fmt.Errorf("end_date must be YYYY-MM-DD")
+		}
+		if end.Before(start) {
+			return fmt.Errorf("end_date must not be before start_date")
+		}
+	}
+	return nil
 }
 
 func (s *Service) tagIDs(ctx context.Context, budgetID string) ([]string, error) {
@@ -194,13 +233,20 @@ func (s *Service) Update(ctx context.Context, workspaceID, id string, in UpdateI
 		b.StartDate = *in.StartDate
 	}
 	if in.EndDate != nil {
-		b.EndDate = in.EndDate
+		if *in.EndDate == "" {
+			b.EndDate = nil
+		} else {
+			b.EndDate = in.EndDate
+		}
 	}
 	if in.Rollover != nil {
 		b.Rollover = *in.Rollover
 	}
 	if in.AccountID != nil {
 		b.AccountID = in.AccountID
+	}
+	if err := validateBudget(b); err != nil {
+		return Budget{}, err
 	}
 	now := nowUTC()
 	_, err = s.db.ExecContext(ctx, `

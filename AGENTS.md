@@ -52,6 +52,7 @@ Follow this loop for every task:
 4. Run the relevant checks (see §7). If no toolchain exists yet, say so.
 5. Update `TASKS.md`: mark the task `[x]`, or `[!]` with a blocker note.
 6. Commit the task with a Conventional Commit message (§6).
+7. Always uses the provided agentic editor tool for updating files, don't use script!
 
 One logical task per commit. Do not bundle unrelated changes. Do not commit
 generated secrets, local databases, `node_modules`, build output, or editor

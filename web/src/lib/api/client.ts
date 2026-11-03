@@ -1,5 +1,11 @@
 import type {
 	Account,
+	AccountInput,
+	AccountUpdate,
+	Budget,
+	BudgetInput,
+	BudgetSummary,
+	BudgetUpdate,
 	Dashboard,
 	DateRange,
 	Tag,
@@ -7,7 +13,9 @@ import type {
 	TransactionFilters,
 	TransactionInput,
 	TransactionPage,
-	TransactionUpdate
+	TransactionUpdate,
+	Transfer,
+	TransferInput
 } from './types';
 
 export class ApiError extends Error {
@@ -37,6 +45,16 @@ async function requestJSON<T>(path: string, fetcher: Fetcher, init?: RequestInit
 	return (await response.json()) as T;
 }
 
+async function requestVoid(path: string, fetcher: Fetcher, init?: RequestInit): Promise<void> {
+	const response = await fetcher(path, {
+		...init,
+		headers: { Accept: 'application/json', ...init?.headers }
+	});
+	if (!response.ok) {
+		throw new ApiError(response.status, await errorMessage(response));
+	}
+}
+
 async function errorMessage(response: Response): Promise<string> {
 	try {
 		const body = (await response.json()) as { detail?: unknown; title?: unknown };
@@ -52,6 +70,10 @@ async function errorMessage(response: Response): Promise<string> {
 	return `Request failed with status ${response.status}`;
 }
 
+function unwrapList<T>(body: Record<string, T[] | undefined> | T[], key: string): T[] {
+	return Array.isArray(body) ? body : (body[key] ?? []);
+}
+
 /** Fetch the dashboard read model for an inclusive date range. */
 export function getDashboard(range: DateRange, fetcher: Fetcher = fetch): Promise<Dashboard> {
 	const params = new URLSearchParams({ from: range.from, to: range.to });
@@ -61,14 +83,39 @@ export function getDashboard(range: DateRange, fetcher: Fetcher = fetch): Promis
 /** Fetch accounts with their current balances. */
 export function listAccounts(fetcher: Fetcher = fetch): Promise<Account[]> {
 	return requestJSON<{ accounts?: Account[] } | Account[]>('/api/v1/accounts', fetcher).then(
-		(body) => (Array.isArray(body) ? body : (body.accounts ?? []))
+		(body) => unwrapList<Account>(body, 'accounts')
 	);
+}
+
+/** Create a wallet, savings, or credit account. */
+export function createAccount(input: AccountInput, fetcher: Fetcher = fetch): Promise<Account> {
+	return requestJSON<Account>('/api/v1/accounts', fetcher, {
+		method: 'POST',
+		body: JSON.stringify(input)
+	});
+}
+
+/** Update an account name, archived flag, or opening balance. */
+export function updateAccount(
+	id: string,
+	input: AccountUpdate,
+	fetcher: Fetcher = fetch
+): Promise<Account> {
+	return requestJSON<Account>(`/api/v1/accounts/${encodeURIComponent(id)}`, fetcher, {
+		method: 'PATCH',
+		body: JSON.stringify(input)
+	});
+}
+
+/** Delete an account and, by cascade, its transactions. */
+export function deleteAccount(id: string, fetcher: Fetcher = fetch): Promise<void> {
+	return requestVoid(`/api/v1/accounts/${encodeURIComponent(id)}`, fetcher, { method: 'DELETE' });
 }
 
 /** Fetch every tag in the workspace. */
 export function listTags(fetcher: Fetcher = fetch): Promise<Tag[]> {
 	return requestJSON<{ tags?: Tag[] } | Tag[]>('/api/v1/tags', fetcher).then((body) =>
-		Array.isArray(body) ? body : (body.tags ?? [])
+		unwrapList<Tag>(body, 'tags')
 	);
 }
 
@@ -130,12 +177,68 @@ export function updateTransaction(
 }
 
 /** Delete a transaction. */
-export async function deleteTransaction(id: string, fetcher: Fetcher = fetch): Promise<void> {
-	const response = await fetcher(`/api/v1/transactions/${encodeURIComponent(id)}`, {
-		method: 'DELETE',
-		headers: { Accept: 'application/json' }
+export function deleteTransaction(id: string, fetcher: Fetcher = fetch): Promise<void> {
+	return requestVoid(`/api/v1/transactions/${encodeURIComponent(id)}`, fetcher, {
+		method: 'DELETE'
 	});
-	if (!response.ok) {
-		throw new ApiError(response.status, await errorMessage(response));
-	}
+}
+
+/** Move money between two same-currency accounts. */
+export function createTransfer(input: TransferInput, fetcher: Fetcher = fetch): Promise<Transfer> {
+	return requestJSON<Transfer>('/api/v1/transfers', fetcher, {
+		method: 'POST',
+		body: JSON.stringify(input)
+	});
+}
+
+/** Fetch a single account. */
+export function getAccount(id: string, fetcher: Fetcher = fetch): Promise<Account> {
+	return requestJSON<Account>(`/api/v1/accounts/${encodeURIComponent(id)}`, fetcher);
+}
+
+/** Fetch a budget summary (spent per tag). */
+export function getBudgetSummary(
+	id: string,
+	fetcher: Fetcher = fetch
+): Promise<BudgetSummary[]> {
+	return requestJSON<{ summary?: BudgetSummary[] } | BudgetSummary[]>(
+		`/api/v1/budgets/${encodeURIComponent(id)}/summary`,
+		fetcher
+	).then((body) => unwrapList<BudgetSummary>(body, 'summary'));
+}
+/** Fetch every budget in the workspace. */
+export function listBudgets(fetcher: Fetcher = fetch): Promise<Budget[]> {
+	return requestJSON<{ budgets?: Budget[] } | Budget[]>('/api/v1/budgets', fetcher).then((body) =>
+		unwrapList<Budget>(body, 'budgets')
+	);
+}
+
+/** Fetch one budget with its tags. */
+export function getBudget(id: string, fetcher: Fetcher = fetch): Promise<Budget> {
+	return requestJSON<Budget>(`/api/v1/budgets/${encodeURIComponent(id)}`, fetcher);
+}
+
+/** Create a weekly or monthly tag-based budget. */
+export function createBudget(input: BudgetInput, fetcher: Fetcher = fetch): Promise<Budget> {
+	return requestJSON<Budget>('/api/v1/budgets', fetcher, {
+		method: 'POST',
+		body: JSON.stringify(input)
+	});
+}
+
+/** Update a budget, leaving omitted fields unchanged. */
+export function updateBudget(
+	id: string,
+	input: BudgetUpdate,
+	fetcher: Fetcher = fetch
+): Promise<Budget> {
+	return requestJSON<Budget>(`/api/v1/budgets/${encodeURIComponent(id)}`, fetcher, {
+		method: 'PATCH',
+		body: JSON.stringify(input)
+	});
+}
+
+/** Delete a budget. Tag and transaction data is unaffected. */
+export function deleteBudget(id: string, fetcher: Fetcher = fetch): Promise<void> {
+	return requestVoid(`/api/v1/budgets/${encodeURIComponent(id)}`, fetcher, { method: 'DELETE' });
 }

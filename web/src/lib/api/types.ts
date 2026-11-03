@@ -79,6 +79,66 @@ export interface TransactionUpdate {
 	tag_ids?: string[];
 }
 
+export type AccountType = 'wallet' | 'savings' | 'credit';
+
+export interface AccountInput {
+	name: string;
+	type: AccountType;
+	currency: string;
+	opening_balance_minor: number;
+}
+
+export interface AccountUpdate {
+	name?: string;
+	archived?: boolean;
+	opening_balance_minor?: number;
+}
+
+export interface TransferInput {
+	from_account_id: string;
+	to_account_id: string;
+	amount_minor: number;
+	occurred_at: string;
+	description: string;
+	notes: string;
+}
+
+export interface Transfer {
+	transfer_id: string;
+	from: Transaction;
+	to: Transaction;
+}
+
+export type BudgetPeriod = 'weekly' | 'monthly';
+
+export interface Budget {
+	id: string;
+	workspace_id: string;
+	name: string;
+	amount_minor: number;
+	period: BudgetPeriod;
+	start_date: string;
+	end_date?: string | null;
+	rollover: boolean;
+	account_id?: string | null;
+	tag_ids: string[];
+	created_at: string;
+	updated_at: string;
+}
+
+export interface BudgetInput {
+	name: string;
+	amount_minor: number;
+	period: BudgetPeriod;
+	start_date: string;
+	end_date?: string | null;
+	rollover: boolean;
+	account_id?: string | null;
+	tag_ids: string[];
+}
+
+export type BudgetUpdate = Partial<BudgetInput>;
+
 export interface BudgetProgress {
 	id: string;
 	name: string;
@@ -102,6 +162,13 @@ export interface Dashboard {
 	net_minor: number;
 	budgets: BudgetProgress[];
 	recent_transactions: Transaction[];
+}
+
+export interface BudgetSummary {
+	tag_id: string;
+	tag_name: string;
+	color: string;
+	spent_minor: number;
 }
 
 export interface DateRange {
