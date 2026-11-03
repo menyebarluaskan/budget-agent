@@ -23,8 +23,8 @@ Live progress tracker for **Integrated Personal Budget**.
 
 ## Current phase
 
-**Phase 2 — Backend core.** Foundation is complete. M1 starts with the
-workspace-scoped database and migrations (`T-101`).
+**Phase 3 — Web frontend.** Backend core (M1) is complete. M2 starts with the
+app shell, design tokens, and responsive navigation (`T-201`).
 
 ## Milestone 0 — Project foundations
 
@@ -59,7 +59,7 @@ workspace-scoped database and migrations (`T-101`).
 
 | ID | Task | Status | Commit |
 | --- | --- | --- | --- |
-| T-201 | Frontend scaffold, design tokens, and responsive layout | `[ ]` | — |
+| T-201 | Frontend scaffold, design tokens, and responsive layout | `[x]` | `feat(web): add app shell and responsive navigation` |
 | T-202 | Dashboard with balance, spending, and budget widgets | `[ ]` | — |
 | T-203 | Transaction list, filters, and create/edit flow | `[ ]` | — |
 | T-204 | Budget and account management screens | `[ ]` | — |
@@ -122,3 +122,4 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 | 2026-11-02 | T-005 approved; T-007 scaffolded the Go API, SvelteKit UI, and Makefile quality gates. |
 | 2026-11-02 | D11 resolved and T-008 added the GitHub Actions CI quality gate. |
 | 2026-11-02 | D10 resolved as MIT; M0 foundation complete. |
+| 2026-11-03 | M1 backend core complete; T-201 added the app shell, design tokens, and responsive navigation. |
