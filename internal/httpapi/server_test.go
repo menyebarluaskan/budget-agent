@@ -139,6 +139,92 @@ func TestWorkspaceSwitchForbiddenTailnet(t *testing.T) {
 		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
 	}
 }
+func TestInviteFlowTailnet(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "budget.db"))
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer database.Close()
+	if err := db.Migrate(database); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	handler := New(Options{Logger: testLogger(), DB: database, AuthMode: "tailnet"})
+
+	// alice creates an invite for her personal workspace
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/placeholder/invites", nil)
+	// need alice's workspace id; resolve via list first
+	req.Header.Set("Tailscale-User-Login", "alice@example.com")
+	rec := httptest.NewRecorder()
+	// first get workspaces to find id
+	greq := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces", nil)
+	greq.Header.Set("Tailscale-User-Login", "alice@example.com")
+	grec := httptest.NewRecorder()
+	handler.ServeHTTP(grec, greq)
+	if grec.Code != http.StatusOK {
+		t.Fatalf("list workspaces: %d %s", grec.Code, grec.Body.String())
+	}
+	var wl struct {
+		Workspaces []struct {
+			ID string `json:"id"`
+		} `json:"workspaces"`
+	}
+	_ = json.NewDecoder(grec.Body).Decode(&wl)
+	if len(wl.Workspaces) == 0 {
+		t.Fatal("no workspaces")
+	}
+	aliceWS := wl.Workspaces[0].ID
+
+	// create invite
+	ireq := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+aliceWS+"/invites", nil)
+	ireq.Header.Set("Tailscale-User-Login", "alice@example.com")
+	irec := httptest.NewRecorder()
+	handler.ServeHTTP(irec, ireq)
+	if irec.Code != http.StatusCreated {
+		t.Fatalf("create invite: %d %s", irec.Code, irec.Body.String())
+	}
+	var inv struct {
+		Token string `json:"token"`
+	}
+	_ = json.NewDecoder(irec.Body).Decode(&inv)
+	if inv.Token == "" {
+		t.Fatal("empty token")
+	}
+
+	// bob redeems
+	rreq := httptest.NewRequest(http.MethodPost, "/api/v1/invites/"+inv.Token+"/redeem", nil)
+	rreq.Header.Set("Tailscale-User-Login", "bob@example.com")
+	rrec := httptest.NewRecorder()
+	handler.ServeHTTP(rrec, rreq)
+	if rrec.Code != http.StatusOK {
+		t.Fatalf("redeem: %d %s", rrec.Code, rrec.Body.String())
+	}
+
+	// bob now sees alice's workspace
+	breq := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces", nil)
+	breq.Header.Set("Tailscale-User-Login", "bob@example.com")
+	brec := httptest.NewRecorder()
+	handler.ServeHTTP(brec, breq)
+	if brec.Code != http.StatusOK {
+		t.Fatalf("bob list: %d %s", brec.Code, brec.Body.String())
+	}
+	var bl struct {
+		Workspaces []struct {
+			ID string `json:"id"`
+		} `json:"workspaces"`
+	}
+	_ = json.NewDecoder(brec.Body).Decode(&bl)
+	found := false
+	for _, w := range bl.Workspaces {
+		if w.ID == aliceWS {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("bob does not see shared workspace: %+v", bl.Workspaces)
+	}
+	_ = req
+	_ = rec
+}
 func TestUnknownRoute(t *testing.T) {
 	handler := New(Options{Logger: testLogger()})
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/does-not-exist", nil)

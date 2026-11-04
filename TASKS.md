@@ -25,8 +25,8 @@ Live progress tracker for **Integrated Personal Budget**.
 
 **Phase 3 — Web frontend.** Backend core (M1) is complete. The app shell,
 dashboard with charts, transaction flow, and budget/account screens are in
-place. T-207a (workspace resolution + membership list) is complete; T-207b
-(invite-token sharing + switcher UI) is next.
+place. T-207 (workspace resolution, invite-token sharing, and switcher UI) is
+complete.
 
 ## Milestone 0 — Project foundations
 
@@ -69,7 +69,7 @@ place. T-207a (workspace resolution + membership list) is complete; T-207b
 | T-206 | PWA polish, accessibility pass, and performance budget check | `[x]` | `feat(web): add PWA manifest and service worker` |
 | T-206a | Accessibility pass and performance budget check (follow-up) | `[x]` | `feat(web): complete accessibility and performance budget check` |
 | T-207a | Active workspace resolution (`X-Workspace-Id` header validated against membership) and `GET /api/v1/workspaces` listing a user's memberships | `[x]` | `feat(workspaces): add active workspace resolution and membership list` |
-| T-207b | Shared workspace invite-token flow (owner issues invite; invitee redeems), member management (list/remove/leave), and workspace switcher UI shown when >1 membership | `[ ]` | |
+| T-207b | Shared workspace invite-token flow (owner issues invite; invitee redeems), member management (list/remove/leave), and workspace switcher UI shown when >1 membership | `[x]` | `feat(workspaces): add invite-token sharing and switcher UI` |
 | T-208 | Inline tag picker in the transaction form with create, rename, and predefined color editing | `[x]` | `feat(web): add inline tag management to transactions` |
 | T-209 | Fix pre-existing frontend lint and formatting failures | `[x]` | `fix(web): resolve pre-existing lint and formatting failures` |
 

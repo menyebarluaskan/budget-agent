@@ -38,7 +38,75 @@ paths:
         "200":
           description: Workspaces
 
-  /api/v1/accounts:
+  /api/v1/workspaces/{id}:
+    patch:
+      summary: Rename a workspace (owner only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Renamed
+
+  /api/v1/workspaces/{id}/members:
+    get:
+      summary: List members (owner only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Members
+
+  /api/v1/workspaces/{id}/invites:
+    post:
+      summary: Create an invite token (owner only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Invite created
+
+  /api/v1/invites/{token}/redeem:
+    post:
+      summary: Redeem an invite token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Joined workspace
+
+  /api/v1/workspaces/{id}/members/{user_id}:
+    delete:
+      summary: Remove a member or leave (self)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed
     get:
       summary: List accounts
       parameters:

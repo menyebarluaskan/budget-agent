@@ -223,3 +223,23 @@ export interface BudgetTrend {
 	amount_minor: number;
 	periods: BudgetPeriodSpending[];
 }
+
+export interface Workspace {
+	id: string;
+	name: string;
+	role: 'owner' | 'member';
+	created_at: string;
+}
+
+export interface WorkspaceMember {
+	user_id: string;
+	login: string;
+	display_name: string;
+	role: 'owner' | 'member';
+	created_at: string;
+}
+
+export interface WorkspaceInvite {
+	token: string;
+	expires_at: string;
+}

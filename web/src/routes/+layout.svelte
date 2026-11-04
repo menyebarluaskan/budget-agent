@@ -1,16 +1,22 @@
 <script lang="ts">
 	import '../app.css';
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
 	import BottomNav from '$lib/components/BottomNav.svelte';
 	import MobileHeader from '$lib/components/MobileHeader.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import { loadWorkspaces } from '$lib/workspace.svelte';
 	import { findActiveNavItem } from '$lib/navigation';
 
 	let { children }: { children: Snippet } = $props();
 
 	const activeItem = $derived(findActiveNavItem(page.url.pathname));
 	const title = $derived(activeItem ? `${activeItem.label} · Budget Agent` : 'Budget Agent');
+
+	onMount(() => {
+		void loadWorkspaces();
+	});
 </script>
 
 <svelte:head>

@@ -4,6 +4,7 @@
 	import Brand from './Brand.svelte';
 	import Icon from './Icon.svelte';
 	import NavItemLink from './NavItemLink.svelte';
+	import WorkspaceSwitcher from './WorkspaceSwitcher.svelte';
 </script>
 
 <aside
@@ -12,6 +13,7 @@
 	<div class="flex h-20 items-center px-5">
 		<Brand />
 	</div>
+	<WorkspaceSwitcher />
 
 	<nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Primary">
 		{#each primaryNav as item (item.href)}

@@ -341,6 +341,104 @@ func registerWorkspaceRoutes(mux *http.ServeMux, svc *workspaces.Service) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"workspaces": list})
 	})
+
+	mux.HandleFunc("GET /api/v1/workspaces/{id}/members", func(w http.ResponseWriter, r *http.Request) {
+		ws := r.PathValue("id")
+		uid := userID(r)
+		owner, err := svc.IsOwner(r.Context(), uid, ws)
+		if err != nil {
+			writeWorkspaceError(w, err)
+			return
+		}
+		if !owner {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		members, err := svc.ListMembers(r.Context(), ws)
+		if err != nil {
+			writeWorkspaceError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"members": members})
+	})
+
+	mux.HandleFunc("POST /api/v1/workspaces/{id}/invites", func(w http.ResponseWriter, r *http.Request) {
+		ws := r.PathValue("id")
+		uid := userID(r)
+		if uid == "" {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		inv, err := svc.CreateInvite(r.Context(), ws, uid, 7*24*time.Hour)
+		if err != nil {
+			writeWorkspaceError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, inv)
+	})
+
+	mux.HandleFunc("POST /api/v1/invites/{token}/redeem", func(w http.ResponseWriter, r *http.Request) {
+		token := r.PathValue("token")
+		uid := userID(r)
+		if uid == "" {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		ws, err := svc.RedeemInvite(r.Context(), token, uid)
+		if err != nil {
+			writeWorkspaceError(w, err)
+			return
+		}
+		name, _ := svc.WorkspaceName(r.Context(), ws)
+		writeJSON(w, http.StatusOK, map[string]any{"workspace_id": ws, "name": name})
+	})
+
+	mux.HandleFunc("DELETE /api/v1/workspaces/{id}/members/{user_id}", func(w http.ResponseWriter, r *http.Request) {
+		ws := r.PathValue("id")
+		target := r.PathValue("user_id")
+		uid := userID(r)
+		if uid == "" {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if err := svc.RemoveMember(r.Context(), ws, uid, target); err != nil {
+			writeWorkspaceError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	mux.HandleFunc("PATCH /api/v1/workspaces/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ws := r.PathValue("id")
+		uid := userID(r)
+		var body struct {
+			Name *string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+		if body.Name != nil {
+			if err := svc.RenameWorkspace(r.Context(), ws, uid, *body.Name); err != nil {
+				writeWorkspaceError(w, err)
+				return
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"id": ws})
+	})
+}
+
+func writeWorkspaceError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, workspaces.ErrNotFound):
+		writeError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, workspaces.ErrForbidden):
+		writeError(w, http.StatusForbidden, err.Error())
+	case errors.Is(err, workspaces.ErrInvalidInvite):
+		writeError(w, http.StatusBadRequest, err.Error())
+	default:
+		writeError(w, http.StatusInternalServerError, err.Error())
+	}
 }
 
 func registerTagRoutes(mux *http.ServeMux, svc *tags.Service) {

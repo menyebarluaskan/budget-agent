@@ -1,3 +1,4 @@
+import { getActiveWorkspaceId } from '../activeWorkspace';
 import type {
 	Account,
 	AccountInput,
@@ -19,7 +20,10 @@ import type {
 	TransactionPage,
 	TransactionUpdate,
 	Transfer,
-	TransferInput
+	TransferInput,
+	Workspace,
+	WorkspaceInvite,
+	WorkspaceMember
 } from './types';
 
 export class ApiError extends Error {
@@ -39,6 +43,7 @@ async function requestJSON<T>(path: string, fetcher: Fetcher, init?: RequestInit
 		...init,
 		headers: {
 			Accept: 'application/json',
+			...(getActiveWorkspaceId() ? { 'X-Workspace-Id': getActiveWorkspaceId()! } : {}),
 			...(init?.body ? { 'Content-Type': 'application/json' } : {}),
 			...init?.headers
 		}
@@ -52,7 +57,11 @@ async function requestJSON<T>(path: string, fetcher: Fetcher, init?: RequestInit
 async function requestVoid(path: string, fetcher: Fetcher, init?: RequestInit): Promise<void> {
 	const response = await fetcher(path, {
 		...init,
-		headers: { Accept: 'application/json', ...init?.headers }
+		headers: {
+			Accept: 'application/json',
+			...(getActiveWorkspaceId() ? { 'X-Workspace-Id': getActiveWorkspaceId()! } : {}),
+			...init?.headers
+		}
 	});
 	if (!response.ok) {
 		throw new ApiError(response.status, await errorMessage(response));
@@ -288,4 +297,70 @@ export function updateBudget(
 /** Delete a budget. Tag and transaction data is unaffected. */
 export function deleteBudget(id: string, fetcher: Fetcher = fetch): Promise<void> {
 	return requestVoid(`/api/v1/budgets/${encodeURIComponent(id)}`, fetcher, { method: 'DELETE' });
+}
+
+/** List workspaces the caller belongs to. */
+export function listWorkspaces(fetcher: Fetcher = fetch): Promise<Workspace[]> {
+	return requestJSON<{ workspaces?: Workspace[] } | Workspace[]>(
+		'/api/v1/workspaces',
+		fetcher
+	).then((body) => (Array.isArray(body) ? body : (body.workspaces ?? [])));
+}
+
+/** List members of a workspace (owner only). */
+export function listWorkspaceMembers(
+	id: string,
+	fetcher: Fetcher = fetch
+): Promise<WorkspaceMember[]> {
+	return requestJSON<{ members?: WorkspaceMember[] } | WorkspaceMember[]>(
+		`/api/v1/workspaces/${encodeURIComponent(id)}/members`,
+		fetcher
+	).then((body) => (Array.isArray(body) ? body : (body.members ?? [])));
+}
+
+/** Create an invite token for a workspace (owner only). */
+export function createWorkspaceInvite(
+	id: string,
+	fetcher: Fetcher = fetch
+): Promise<WorkspaceInvite> {
+	return requestJSON<WorkspaceInvite>(
+		`/api/v1/workspaces/${encodeURIComponent(id)}/invites`,
+		fetcher,
+		{
+			method: 'POST'
+		}
+	);
+}
+
+/** Redeem an invite token, joining the workspace. */
+export function redeemWorkspaceInvite(
+	token: string,
+	fetcher: Fetcher = fetch
+): Promise<{ workspace_id: string; name: string }> {
+	return requestJSON(`/api/v1/invites/${encodeURIComponent(token)}/redeem`, fetcher, {
+		method: 'POST'
+	});
+}
+
+/** Remove a member from a workspace (owner) or leave (self). */
+export function removeWorkspaceMember(
+	workspaceId: string,
+	userId: string,
+	fetcher: Fetcher = fetch
+): Promise<void> {
+	return requestVoid(
+		`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
+		fetcher,
+		{
+			method: 'DELETE'
+		}
+	);
+}
+
+/** Rename a workspace (owner only). */
+export function renameWorkspace(id: string, name: string, fetcher: Fetcher = fetch): Promise<void> {
+	return requestVoid(`/api/v1/workspaces/${encodeURIComponent(id)}`, fetcher, {
+		method: 'PATCH',
+		body: JSON.stringify({ name })
+	});
 }
