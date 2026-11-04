@@ -34,6 +34,7 @@ type Config struct {
 	AIAPIKey      string
 	AIModel       string
 	AIVisionModel string
+	AITimeout     time.Duration
 
 	WhatsAppEnabled        bool
 	WhatsAppVerifyToken    string
@@ -68,6 +69,7 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 		AIAPIKey:        getenv("AI_API_KEY"),
 		AIModel:         read("AI_MODEL"),
 		AIVisionModel:   read("AI_VISION_MODEL"),
+		AITimeout:       30 * time.Second,
 		DefaultCurrency: valueOrDefault(read("DEFAULT_CURRENCY"), defaultCurrency),
 		Timezone:        valueOrDefault(read("TZ"), defaultTimezone),
 		LogLevel:        slog.LevelInfo,
@@ -105,6 +107,13 @@ func LoadFrom(getenv func(string) string) (Config, error) {
 	}
 	cfg.LogLevel = level
 
+	if raw := read("AI_TIMEOUT"); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil {
+			return Config{}, fmt.Errorf("AI_TIMEOUT: %w", err)
+		}
+		cfg.AITimeout = d
+	}
 	if cfg.AIEnabled, err = parseBool("AI_ENABLED", read("AI_ENABLED")); err != nil {
 		return Config{}, err
 	}

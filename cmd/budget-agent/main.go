@@ -16,6 +16,7 @@ import (
 	_ "time/tzdata"
 
 	"budget-agent/internal/accounts"
+	"budget-agent/internal/ai"
 	"budget-agent/internal/config"
 	"budget-agent/internal/db"
 	"budget-agent/internal/httpapi"
@@ -54,6 +55,8 @@ func run() error {
 		return fmt.Errorf("bootstrap workspace: %w", err)
 	}
 
+	aiProvider, aiEnabled := ai.NewFromConfig(cfg.AIEnabled, cfg.AIBaseURL, cfg.AIAPIKey, cfg.AIModel, cfg.AITimeout)
+
 	ready := func(ctx context.Context) error { return database.PingContext(ctx) }
 	server := &http.Server{
 		Addr: cfg.Addr,
@@ -64,6 +67,8 @@ func run() error {
 			AuthMode:        cfg.AuthMode,
 			TokenPepper:     cfg.TokenPepper,
 			DefaultCurrency: cfg.DefaultCurrency,
+			AIEnabled:       aiEnabled,
+			AIProvider:      aiProvider,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

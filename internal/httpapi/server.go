@@ -136,6 +136,8 @@ type Options struct {
 	AuthMode        string
 	TokenPepper     string
 	DefaultCurrency string
+	AIEnabled       bool
+	AIProvider      any
 }
 
 type statusResponse struct {

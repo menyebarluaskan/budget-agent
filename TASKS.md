@@ -79,7 +79,10 @@ older account and budget screens, unrelated to T-205. Tracked as T-209.
 | ID | Task | Status | Commit |
 | --- | --- | --- | --- |
 | T-301 | MCP server with transaction, query, budget, and receipt tools | `[x]` | `feat(mcp): add MCP server with transaction, query, budget, and receipt tools` |
-| T-302 | AI provider abstraction and chat-to-transaction draft flow | `[ ]` | — |
+| T-302 | AI provider abstraction and chat-to-transaction draft flow | `[~]` | in progress |
+| T-302a | Provider interface, OpenAI-compatible adapter, config wiring, and 503 gating | `[x]` | `feat(ai): add provider interface, OpenAI adapter, config wiring, and 503 gating` |
+| T-302b | parse-transaction endpoint → draft creation, validation, audit log | `[ ]` | — |
+| T-302c | Prompt fixtures and golden tests for parsing accuracy | `[ ]` | — |
 | T-303 | WhatsApp webhook with signature verification, allowlist, and idempotency | `[!]` | Deferred by D5 |
 | T-304 | Receipt upload and vision-based OCR into a confirmable draft | `[ ]` | — |
 | T-305 | Audit trail for AI-assisted writes | `[ ]` | — |
