@@ -61,6 +61,8 @@ func run() error {
 			Logger:          logger,
 			Ready:           ready,
 			DB:              database,
+			AuthMode:        cfg.AuthMode,
+			TokenPepper:     cfg.TokenPepper,
 			DefaultCurrency: cfg.DefaultCurrency,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,

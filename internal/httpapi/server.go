@@ -29,30 +29,57 @@ type AuthResult struct {
 	IsAuthenticated bool
 }
 
-// AuthMiddleware authenticates requests using bearer tokens or tailnet identity.
-func AuthMiddleware(next http.Handler, authMode string, tokenPepper string) http.Handler {
+// AuthMiddleware authenticates requests using tailnet identity or bearer tokens.
+// It resolves the authenticated identity to a workspace_id stored in the request
+// context. Health/readiness/webhook routes are exempt.
+func AuthMiddleware(db *sql.DB, next http.Handler, authMode string, tokenPepper string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check for bearer token authentication
+		// Exempt routes that must work without identity.
+		if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" ||
+			strings.HasPrefix(r.URL.Path, "/webhooks/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Dev mode: synthetic default workspace, no identity required.
+		if authMode == "dev" || authMode == "" {
+			if db != nil {
+				_ = accounts.EnsureDefaultWorkspace(r.Context(), db)
+			}
+			r = r.WithContext(context.WithValue(r.Context(), "workspace_id", "default"))
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Bearer token: resolve the token's bound workspace (token service lands later).
 		authHeader := r.Header.Get("Authorization")
 		if strings.HasPrefix(authHeader, "Bearer ") {
 			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-			if tokenString != "" && (authMode == "tailnet" || authMode == "dev") {
+			if tokenString != "" && db != nil {
+				// Token hashing/lookup is not implemented yet; keep the existing
+				// placeholder behavior so API/MCP clients are not blocked.
 				r = r.WithContext(context.WithValue(r.Context(), "workspace_id", "authenticated"))
 				next.ServeHTTP(w, r)
 				return
 			}
 		}
 
-		// Fall back to tailnet/workspace header authentication
-		ws := workspaceID(r)
-		if ws != "" {
-			r = r.WithContext(context.WithValue(r.Context(), "workspace_id", ws))
-			next.ServeHTTP(w, r)
+		// Tailnet identity: trust the header only because we bind to loopback.
+		login := r.Header.Get("Tailscale-User-Login")
+		if login == "" {
+			writeError(w, http.StatusUnauthorized, "missing tailnet identity")
 			return
 		}
-
-		// No authentication provided - allow with default workspace
-		r = r.WithContext(context.WithValue(r.Context(), "workspace_id", "default"))
+		if db == nil {
+			writeError(w, http.StatusUnauthorized, "identity resolution unavailable")
+			return
+		}
+		ws, err := accounts.EnsurePersonalWorkspace(r.Context(), db, login)
+		if err != nil || ws == "" {
+			writeError(w, http.StatusInternalServerError, "identity resolution failed")
+			return
+		}
+		r = r.WithContext(context.WithValue(r.Context(), "workspace_id", ws))
 		next.ServeHTTP(w, r)
 	})
 }
@@ -149,7 +176,8 @@ func New(opts Options) http.Handler {
 		registerAnalyticsRoutes(mux, analytics.NewService(opts.DB, opts.DefaultCurrency))
 		registerDashboardRoutes(mux, dashboard.NewService(opts.DB, opts.DefaultCurrency))
 	}
-	return withMiddleware(logger, mux)
+	authed := AuthMiddleware(opts.DB, mux, opts.AuthMode, opts.TokenPepper)
+	return withMiddleware(logger, authed)
 }
 
 func registerAccountRoutes(mux *http.ServeMux, svc *accounts.Service) {

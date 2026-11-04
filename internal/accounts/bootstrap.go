@@ -3,10 +3,14 @@ package accounts
 import (
 	"context"
 	"database/sql"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 // EnsureDefaultWorkspace creates a default user and workspace if none exist.
-// Used until T-108 wires real identity/workspace mapping.
+// Used for dev mode (AUTH_MODE=dev) and tests; production tailnet users get a
+// personal workspace via EnsurePersonalWorkspace on first request.
 func EnsureDefaultWorkspace(ctx context.Context, db *sql.DB) error {
 	var count int
 	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
@@ -29,4 +33,51 @@ func EnsureDefaultWorkspace(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+// EnsurePersonalWorkspace upserts a user for the given Tailscale login and
+// ensures they have at least one personal workspace, returning its ID. Each
+// distinct Tailscale user gets their own isolated workspace by default.
+func EnsurePersonalWorkspace(ctx context.Context, db *sql.DB, tailscaleLogin string) (string, error) {
+	if tailscaleLogin == "" {
+		return "", nil
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	// Upsert user by tailscale_login.
+	var userID string
+	err := db.QueryRowContext(ctx, `SELECT id FROM users WHERE tailscale_login = ?`, tailscaleLogin).Scan(&userID)
+	if err == sql.ErrNoRows {
+		userID = uuid.NewString()
+		if _, err := db.ExecContext(ctx, `INSERT INTO users (id, tailscale_login, display_name, created_at) VALUES (?,?,?,?)`,
+			userID, tailscaleLogin, tailscaleLogin, now); err != nil {
+			return "", err
+		}
+	} else if err != nil {
+		return "", err
+	}
+
+	// Return an existing membership's workspace if any.
+	var wsID string
+	err = db.QueryRowContext(ctx, `
+		SELECT wm.workspace_id FROM workspace_members wm
+		WHERE wm.user_id = ? LIMIT 1`, userID).Scan(&wsID)
+	if err == nil && wsID != "" {
+		return wsID, nil
+	}
+	if err != nil && err != sql.ErrNoRows {
+		return "", err
+	}
+
+	// Create a personal workspace.
+	wsID = uuid.NewString()
+	if _, err := db.ExecContext(ctx, `INSERT INTO workspaces (id, name, owner_user_id, created_at, updated_at) VALUES (?,?,?,?,?)`,
+		wsID, "Personal", userID, now, now); err != nil {
+		return "", err
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO workspace_members (workspace_id, user_id, role, created_at) VALUES (?,?,?,?)`,
+		wsID, userID, "owner", now); err != nil {
+		return "", err
+	}
+	return wsID, nil
 }
