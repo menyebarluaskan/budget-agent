@@ -13,7 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"budget-agent/internal/accounts"
+	"budget-agent/internal/ai"
 	"budget-agent/internal/analytics"
 	"budget-agent/internal/budgets"
 	"budget-agent/internal/dashboard"
@@ -179,6 +182,7 @@ func New(opts Options) http.Handler {
 		registerAnalyticsRoutes(mux, analytics.NewService(opts.DB, opts.DefaultCurrency))
 		registerDashboardRoutes(mux, dashboard.NewService(opts.DB, opts.DefaultCurrency))
 		mux.Handle("/mcp", mcp.NewHandler(mcp.Deps{DB: opts.DB, DefaultCurrency: opts.DefaultCurrency}))
+		registerAIRoutes(mux, opts)
 	}
 	authed := AuthMiddleware(opts.DB, mux, opts.AuthMode, opts.TokenPepper)
 	return withMiddleware(logger, authed)
@@ -848,4 +852,118 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
+}
+
+func registerAIRoutes(mux *http.ServeMux, opts Options) {
+	mux.HandleFunc("POST /api/v1/ai/parse-transaction", func(w http.ResponseWriter, r *http.Request) {
+		if !opts.AIEnabled {
+			writeError(w, http.StatusServiceUnavailable, "ai not enabled")
+			return
+		}
+		provider, ok := opts.AIProvider.(ai.Provider)
+		if !ok || provider == nil {
+			writeError(w, http.StatusServiceUnavailable, "ai not configured")
+			return
+		}
+		var body struct {
+			Text string `json:"text"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Text == "" {
+			writeError(w, http.StatusBadRequest, "text required")
+			return
+		}
+		ws := workspaceID(r)
+		asvc := accounts.NewService(opts.DB)
+		tsvc := tags.NewService(opts.DB)
+		accs, _ := asvc.List(r.Context(), ws)
+		tagsList, _ := tsvc.List(r.Context(), ws)
+		accNames := make([]string, 0, len(accs))
+		for _, a := range accs {
+			accNames = append(accNames, a.Name)
+		}
+		tagNames := make([]string, 0, len(tagsList))
+		for _, t := range tagsList {
+			tagNames = append(tagNames, t.Name)
+		}
+		draft, err := provider.ParseTransaction(r.Context(), ai.ParseInput{
+			Text:     body.Text,
+			Accounts: accNames,
+			TagNames: tagNames,
+			Currency: opts.DefaultCurrency,
+		})
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err.Error())
+			return
+		}
+		// Validate account name maps to an existing account.
+		var accountID string
+		for _, a := range accs {
+			if a.Name == draft.AccountName {
+				accountID = a.ID
+				break
+			}
+		}
+		if accountID == "" && len(accs) > 0 {
+			accountID = accs[0].ID
+		}
+		// Filter tag names to existing tags.
+		tagNameSet := map[string]bool{}
+		for _, t := range tagsList {
+			tagNameSet[t.Name] = true
+		}
+		validTags := []string{}
+		for _, tn := range draft.TagNames {
+			if tagNameSet[tn] {
+				validTags = append(validTags, tn)
+			}
+		}
+		// Resolve tag names to IDs.
+		tagIDByName := map[string]string{}
+		for _, t := range tagsList {
+			tagIDByName[t.Name] = t.ID
+		}
+		tagIDs := make([]string, 0, len(validTags))
+		for _, tn := range validTags {
+			if id, ok := tagIDByName[tn]; ok {
+				tagIDs = append(tagIDs, id)
+			}
+		}
+		occurred := draft.OccurredAt
+		if occurred == "" {
+			occurred = time.Now().UTC().Format(time.RFC3339)
+		}
+		payload := map[string]any{
+			"account_id":   accountID,
+			"amount_minor": draft.AmountMinor,
+			"occurred_at":  occurred,
+			"description":  draft.Description,
+			"notes":        draft.Notes,
+			"tag_ids":      tagIDs,
+		}
+		pb, _ := json.Marshal(payload)
+		id := uuid.NewString()
+		now := time.Now().UTC()
+		expires := now.Add(30 * time.Minute)
+		_, err = opts.DB.ExecContext(r.Context(), `
+			INSERT INTO drafts (id, workspace_id, source, payload_json, status, created_at, expires_at)
+			VALUES (?,?,?,?,?,?,?)`,
+			id, ws, "ai", string(pb), "pending", now.Format(time.RFC3339), expires.Format(time.RFC3339))
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{
+			"draft_id": id,
+			"expires_at": expires.Format(time.RFC3339),
+			"parsed": map[string]any{
+				"account_id":   accountID,
+				"amount_minor": draft.AmountMinor,
+				"occurred_at":  occurred,
+				"description":  draft.Description,
+				"notes":        draft.Notes,
+				"tag_ids":      tagIDs,
+				"confidence":   draft.Confidence,
+			},
+		})
+	})
 }
