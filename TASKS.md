@@ -58,6 +58,8 @@ older account and budget screens, unrelated to T-205. Tracked as T-209.
 | T-106 | Spending summary and recommendation endpoints | `[x]` | `feat(spending): add spending summaries and recommendation endpoints` |
 | T-107 | OpenAPI contract and request/response validation | `[x]` | `docs: add OpenAPI 3.0.1 specification` |
 | T-108 | Authentication (tailnet identity and bearer tokens), workspace mapping, and rate limiting | `[x]` | `feat(auth): add bearer token auth and rate limiting` |
+| T-109 | Workspace CRUD and membership endpoints (list/get/create/update, validate X-Workspace-Id) | `[ ]` | — |
+| T-110 | Frontend workspace client methods and active-workspace state | `[ ]` | — |
 
 ## Milestone 2 — Web frontend
 
