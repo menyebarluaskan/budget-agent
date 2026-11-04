@@ -4,7 +4,6 @@
 	import {
 		currencyFractionDigits,
 		formatMoney,
-		occurredAtFromDate,
 		parseMoneyToMinor,
 		todayISODate
 	} from '$lib/format';

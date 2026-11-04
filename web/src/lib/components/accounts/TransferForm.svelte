@@ -28,7 +28,9 @@
 	const usable = $derived(accounts.filter((account) => !account.archived));
 	const initial = untrack(() => {
 		const from = usable[0];
-		const to = usable.find((account) => account.id !== from?.id && account.currency === from?.currency);
+		const to = usable.find(
+			(account) => account.id !== from?.id && account.currency === from?.currency
+		);
 		return { from: from?.id ?? '', to: to?.id ?? '' };
 	});
 
@@ -192,8 +194,7 @@
 			maxlength="2000"
 			class="mt-1.5 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none placeholder:text-ink-muted focus:border-accent"
 			placeholder="Optional context"
-			bind:value={notes}
-		></textarea>
+			bind:value={notes}></textarea>
 	</div>
 
 	<div class="flex flex-wrap items-center gap-3">

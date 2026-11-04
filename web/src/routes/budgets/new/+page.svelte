@@ -2,16 +2,14 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { createBudget, listAccounts, listBudgets, listTags } from '$lib/api/client';
-	import type { Account, Budget, BudgetInput, Tag } from '$lib/api/types';
+	import { createBudget, listAccounts, listTags } from '$lib/api/client';
+	import type { Account, BudgetInput, Tag } from '$lib/api/types';
 	import BudgetForm from '$lib/components/budgets/BudgetForm.svelte';
 	import ButtonLink from '$lib/components/ButtonLink.svelte';
-	import EmptyState from '$lib/components/EmptyState.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 
 	let accounts = $state<Account[]>([]);
 	let tags = $state<Tag[]>([]);
-	let budgets = $state<Budget[]>([]);
 	let loading = $state(true);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
@@ -20,10 +18,9 @@
 		loading = true;
 		error = null;
 		try {
-			const [a, t, b] = await Promise.all([listAccounts(), listTags(), listBudgets()]);
+			const [a, t] = await Promise.all([listAccounts(), listTags()]);
 			accounts = a;
 			tags = t;
-			budgets = b;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Budgets could not be loaded.';
 		} finally {
@@ -47,13 +44,19 @@
 	onMount(() => void load());
 </script>
 
-<PageHeader title="New budget" description="Create a tag-based budget with a weekly or monthly limit." />
+<PageHeader
+	title="New budget"
+	description="Create a tag-based budget with a weekly or monthly limit."
+/>
 
 {#if loading}
-	<div class="mt-6 h-64 animate-pulse rounded-card border border-line bg-surface" aria-hidden="true"></div>
+	<div
+		class="mt-6 h-64 animate-pulse rounded-card border border-line bg-surface"
+		aria-hidden="true"
+	></div>
 {:else}
 	<div class="mt-6">
-		<BudgetForm accounts={accounts} tags={tags} submitLabel="Save budget" busy={saving} error={error} onSubmit={save} />
+		<BudgetForm {accounts} {tags} submitLabel="Save budget" busy={saving} {error} onSubmit={save} />
 	</div>
 	<div class="mt-6">
 		<ButtonLink href="/budgets" variant="secondary">Back to budgets</ButtonLink>

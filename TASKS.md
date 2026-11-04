@@ -71,7 +71,7 @@ older account and budget screens, unrelated to T-205. Tracked as T-209.
 | T-206 | PWA polish, accessibility pass, and performance budget check | `[ ]` | — |
 | T-207 | Workspace switcher and personal/shared workspace UI, hidden until more than one workspace exists | `[ ]` | — |
 | T-208 | Inline tag picker in the transaction form with create, rename, and predefined color editing | `[x]` | `feat(web): add inline tag management to transactions` |
-| T-209 | Fix pre-existing frontend lint and formatting failures | `[ ]` | — |
+| T-209 | Fix pre-existing frontend lint and formatting failures | `[x]` | `fix(web): resolve pre-existing lint and formatting failures` |
 
 ## Milestone 3 — AI, MCP, and WhatsApp
 

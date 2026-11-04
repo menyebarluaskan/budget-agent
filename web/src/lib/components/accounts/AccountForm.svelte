@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type {
-		Account,
-		AccountInput,
-		AccountType,
-		AccountUpdate
-	} from '$lib/api/types';
-	import { currencyFractionDigits, formatMinorForInput, formatMoney, parseMoneyToMinor } from '$lib/format';
+	import type { Account, AccountInput, AccountType, AccountUpdate } from '$lib/api/types';
+	import {
+		currencyFractionDigits,
+		formatMinorForInput,
+		formatMoney,
+		parseMoneyToMinor
+	} from '$lib/format';
 
 	let {
 		account = null,
@@ -32,9 +32,7 @@
 			name: account?.name ?? '',
 			type: (account?.type ?? 'wallet') as AccountType,
 			currency,
-			openingBalance: account
-				? formatMinorForInput(account.opening_balance_minor, digits)
-				: '0',
+			openingBalance: account ? formatMinorForInput(account.opening_balance_minor, digits) : '0',
 			archived: account?.archived ?? false
 		};
 	});

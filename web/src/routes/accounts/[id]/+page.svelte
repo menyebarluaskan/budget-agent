@@ -2,15 +2,13 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { getAccount, listAccounts, listTags, updateAccount, deleteAccount as removeAccount } from '$lib/api/client';
-	import type { Account, AccountUpdate, Tag } from '$lib/api/types';
+	import { getAccount, updateAccount, deleteAccount as removeAccount } from '$lib/api/client';
+	import type { Account, AccountUpdate } from '$lib/api/types';
 	import AccountForm from '$lib/components/accounts/AccountForm.svelte';
 	import ButtonLink from '$lib/components/ButtonLink.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 
 	let account = $state<Account | null>(null);
-	let accounts = $state<Account[]>([]);
-	let tags = $state<Tag[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let saving = $state(false);
@@ -21,11 +19,6 @@
 		error = null;
 		try {
 			account = await getAccount(id);
-			try {
-				const [a, t] = await Promise.all([listAccounts(), listTags()]);
-				accounts = a;
-				tags = t;
-			} catch {}
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Account could not be loaded.';
 		} finally {
@@ -48,7 +41,8 @@
 
 	async function remove() {
 		if (!account) return;
-		if (!window.confirm('Delete this account and all its transactions? This cannot be undone.')) return;
+		if (!window.confirm('Delete this account and all its transactions? This cannot be undone.'))
+			return;
 		deleting = true;
 		try {
 			await removeAccount(account.id);
@@ -67,7 +61,10 @@
 </script>
 
 {#if loading}
-	<div class="mt-6 h-64 animate-pulse rounded-card border border-line bg-surface" aria-hidden="true"></div>
+	<div
+		class="mt-6 h-64 animate-pulse rounded-card border border-line bg-surface"
+		aria-hidden="true"
+	></div>
 {:else if error && !account}
 	<div role="alert" class="mt-6 rounded-card border border-negative/40 bg-negative/5 p-5">
 		<h2 class="text-sm font-semibold text-negative">Couldn't load account</h2>
@@ -76,11 +73,16 @@
 {:else if account}
 	<PageHeader title={account.name} description="Edit account details." />
 	<div class="mt-6">
-		<AccountForm account={account} submitLabel="Save changes" busy={saving} error={error} onSubmit={save} />
+		<AccountForm {account} submitLabel="Save changes" busy={saving} {error} onSubmit={save} />
 	</div>
 	<div class="mt-6 flex flex-wrap items-center justify-between gap-3">
 		<ButtonLink href="/accounts" variant="secondary">Back to accounts</ButtonLink>
-		<button type="button" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-negative/40 bg-surface px-4 text-sm font-semibold text-negative transition-colors hover:bg-negative/5 disabled:cursor-wait disabled:opacity-60" disabled={deleting} onclick={() => void remove()}>
+		<button
+			type="button"
+			class="inline-flex min-h-11 items-center justify-center rounded-xl border border-negative/40 bg-surface px-4 text-sm font-semibold text-negative transition-colors hover:bg-negative/5 disabled:cursor-wait disabled:opacity-60"
+			disabled={deleting}
+			onclick={() => void remove()}
+		>
 			{deleting ? 'Deleting…' : 'Delete account'}
 		</button>
 	</div>
