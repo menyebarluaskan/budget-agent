@@ -68,7 +68,8 @@ older account and budget screens, unrelated to T-205. Tracked as T-209.
 | T-203 | Transaction list, filters, and create/edit flow | `[x]` | `feat(web): add transaction list and create/edit flow` |
 | T-204 | Budget and account management screens | `[x]` | `feat(web): add budget and account management screens` |
 | T-205 | Spending charts and what-if simulation | `[x]` | `feat(web): add spending charts and what-if simulation` |
-| T-206 | PWA polish, accessibility pass, and performance budget check | `[~]` | — |
+| T-206 | PWA polish, accessibility pass, and performance budget check | `[x]` | `feat(web): add PWA manifest and service worker` |
+| T-206a | Accessibility pass and performance budget check (follow-up) | `[~]` | — |
 | T-207 | Workspace switcher and personal/shared workspace UI, hidden until more than one workspace exists | `[ ]` | — |
 | T-208 | Inline tag picker in the transaction form with create, rename, and predefined color editing | `[x]` | `feat(web): add inline tag management to transactions` |
 | T-209 | Fix pre-existing frontend lint and formatting failures | `[x]` | `fix(web): resolve pre-existing lint and formatting failures` |
