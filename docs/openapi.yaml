@@ -25,6 +25,19 @@ paths:
         "503":
           description: Not ready
 
+  /api/v1/workspaces:
+    get:
+      summary: List workspaces the caller belongs to
+      parameters:
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Workspaces
+
   /api/v1/accounts:
     get:
       summary: List accounts

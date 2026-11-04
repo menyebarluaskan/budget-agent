@@ -35,12 +35,13 @@ func EnsureDefaultWorkspace(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-// EnsurePersonalWorkspace upserts a user for the given Tailscale login and
-// ensures they have at least one personal workspace, returning its ID. Each
-// distinct Tailscale user gets their own isolated workspace by default.
-func EnsurePersonalWorkspace(ctx context.Context, db *sql.DB, tailscaleLogin string) (string, error) {
+// EnsurePersonalWorkspaceUser upserts a user for the given Tailscale login and
+// ensures they have at least one personal workspace, returning both the user ID
+// and the workspace ID. Each distinct Tailscale user gets their own isolated
+// workspace by default.
+func EnsurePersonalWorkspaceUser(ctx context.Context, db *sql.DB, tailscaleLogin string) (string, string, error) {
 	if tailscaleLogin == "" {
-		return "", nil
+		return "", "", nil
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 
@@ -51,33 +52,42 @@ func EnsurePersonalWorkspace(ctx context.Context, db *sql.DB, tailscaleLogin str
 		userID = uuid.NewString()
 		if _, err := db.ExecContext(ctx, `INSERT INTO users (id, tailscale_login, display_name, created_at) VALUES (?,?,?,?)`,
 			userID, tailscaleLogin, tailscaleLogin, now); err != nil {
-			return "", err
+			return "", "", err
 		}
 	} else if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// Return an existing membership's workspace if any.
 	var wsID string
 	err = db.QueryRowContext(ctx, `
 		SELECT wm.workspace_id FROM workspace_members wm
-		WHERE wm.user_id = ? LIMIT 1`, userID).Scan(&wsID)
+		WHERE wm.user_id = ? ORDER BY wm.created_at LIMIT 1`, userID).Scan(&wsID)
 	if err == nil && wsID != "" {
-		return wsID, nil
+		return userID, wsID, nil
 	}
 	if err != nil && err != sql.ErrNoRows {
-		return "", err
+		return "", "", err
 	}
 
 	// Create a personal workspace.
 	wsID = uuid.NewString()
 	if _, err := db.ExecContext(ctx, `INSERT INTO workspaces (id, name, owner_user_id, created_at, updated_at) VALUES (?,?,?,?,?)`,
 		wsID, "Personal", userID, now, now); err != nil {
-		return "", err
+		return "", "", err
 	}
 	if _, err := db.ExecContext(ctx, `INSERT INTO workspace_members (workspace_id, user_id, role, created_at) VALUES (?,?,?,?)`,
 		wsID, userID, "owner", now); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return wsID, nil
+	return userID, wsID, nil
+}
+
+// EnsurePersonalWorkspace upserts a user for the given Tailscale login and
+// ensures they have at least one personal workspace, returning its ID. It is a
+// thin wrapper over EnsurePersonalWorkspaceUser for callers that only need the
+// workspace ID.
+func EnsurePersonalWorkspace(ctx context.Context, db *sql.DB, tailscaleLogin string) (string, error) {
+	_, wsID, err := EnsurePersonalWorkspaceUser(ctx, db, tailscaleLogin)
+	return wsID, err
 }

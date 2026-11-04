@@ -25,10 +25,8 @@ Live progress tracker for **Integrated Personal Budget**.
 
 **Phase 3 — Web frontend.** Backend core (M1) is complete. The app shell,
 dashboard with charts, transaction flow, and budget/account screens are in
-place. Next: T-206 PWA polish and accessibility pass.
-
-**Known issue:** `make lint` reports pre-existing formatting and ESLint errors in
-older account and budget screens, unrelated to T-205. Tracked as T-209.
+place. T-207a (workspace resolution + membership list) is complete; T-207b
+(invite-token sharing + switcher UI) is next.
 
 ## Milestone 0 — Project foundations
 
@@ -70,7 +68,8 @@ older account and budget screens, unrelated to T-205. Tracked as T-209.
 | T-205 | Spending charts and what-if simulation | `[x]` | `feat(web): add spending charts and what-if simulation` |
 | T-206 | PWA polish, accessibility pass, and performance budget check | `[x]` | `feat(web): add PWA manifest and service worker` |
 | T-206a | Accessibility pass and performance budget check (follow-up) | `[x]` | `feat(web): complete accessibility and performance budget check` |
-| T-207 | Workspace switcher and personal/shared workspace UI, hidden until more than one workspace exists | `[!]` | Blocked: no workspace API endpoints yet |
+| T-207a | Active workspace resolution (`X-Workspace-Id` header validated against membership) and `GET /api/v1/workspaces` listing a user's memberships | `[x]` | `feat(workspaces): add active workspace resolution and membership list` |
+| T-207b | Shared workspace invite-token flow (owner issues invite; invitee redeems), member management (list/remove/leave), and workspace switcher UI shown when >1 membership | `[ ]` | |
 | T-208 | Inline tag picker in the transaction form with create, rename, and predefined color editing | `[x]` | `feat(web): add inline tag management to transactions` |
 | T-209 | Fix pre-existing frontend lint and formatting failures | `[x]` | `fix(web): resolve pre-existing lint and formatting failures` |
 
@@ -123,6 +122,7 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 - [ ] D12 — Recommendation engine.
 - [ ] D13 — Receipt privacy.
 - [ ] D14 — WhatsApp number-to-workspace mapping (deferred with D5).
+- [x] D15 — Workspace membership and sharing: invite-token, owner/member roles only, no admin for v1.
 
 ## Changelog
 

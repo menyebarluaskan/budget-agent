@@ -790,9 +790,9 @@ Each milestone ends with a runnable, tested increment and an updated `TASKS.md`.
 | **D12** | Recommendations | Deterministic rules in v1; an LLM explanation can come later | M1 |
 | **D13** | Receipt privacy | Do not send receipt images to an AI provider unless AI is enabled and the user confirms | M3 |
 | **D14** | WhatsApp number-to-workspace mapping | Deferred with D5. Decide whether all allowed numbers share one designated workspace or each number maps to a workspace via a small mapping table. No sync with tailnet identity is defined. | M3 |
+| **D15** | **Workspace membership and sharing** | **Invite-token sharing; roles stay `owner`/`member` (no `admin` for v1). Personal workspaces are auto-created; shared workspaces are created implicitly when an owner issues an invite. Active workspace is selected via the `X-Workspace-Id` header, validated against membership.** | Needed before T-207. Avoids free-form workspace creation, orphan workspaces, and an extra role. Admin role and login-based member add are deferred. | M2 |
 
-**Status:** D1–D6, D10, and D11 are resolved. D5 and D7 are deferred. D8, D9,
-D12, and D13 can be settled before their milestone. The specification is
+**Status:** D1–D6, D10, D11, and D15 are resolved. D5 and D7 are deferred. D8, D9, D12, and D13 can be settled before their milestone. The specification is
 approved.
 
 ### 16.3 User model: shared vs separate budgets

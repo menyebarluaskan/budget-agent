@@ -75,6 +75,39 @@ func TestReadyzNotReady(t *testing.T) {
 	assertStatusBody(t, rec, "not ready")
 }
 
+func TestWorkspacesListDev(t *testing.T) {
+	ctx := context.Background()
+	database, err := db.Open(filepath.Join(t.TempDir(), "budget.db"))
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer database.Close()
+	if err := db.Migrate(database); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if err := accounts.EnsureDefaultWorkspace(ctx, database); err != nil {
+		t.Fatalf("bootstrap: %v", err)
+	}
+	handler := New(Options{Logger: testLogger(), DB: database, AuthMode: "dev"})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var body struct {
+		Workspaces []struct {
+			ID   string `json:"id"`
+			Role string `json:"role"`
+		} `json:"workspaces"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Workspaces) != 1 || body.Workspaces[0].ID != "default" {
+		t.Fatalf("workspaces = %+v, want [default]", body.Workspaces)
+	}
+}
 func TestMethodsNotAllowed(t *testing.T) {
 	handler := New(Options{Logger: testLogger()})
 	req := httptest.NewRequest(http.MethodPost, "/healthz", nil)
@@ -87,6 +120,25 @@ func TestMethodsNotAllowed(t *testing.T) {
 	}
 }
 
+func TestWorkspaceSwitchForbiddenTailnet(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "budget.db"))
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer database.Close()
+	if err := db.Migrate(database); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	handler := New(Options{Logger: testLogger(), DB: database, AuthMode: "tailnet"})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces", nil)
+	req.Header.Set("Tailscale-User-Login", "alice@example.com")
+	req.Header.Set("X-Workspace-Id", "does-not-exist")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+}
 func TestUnknownRoute(t *testing.T) {
 	handler := New(Options{Logger: testLogger()})
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/does-not-exist", nil)

@@ -22,8 +22,8 @@ import (
 
 	"budget-agent/internal/accounts"
 	"budget-agent/internal/ai"
-	"budget-agent/internal/audit"
 	"budget-agent/internal/analytics"
+	"budget-agent/internal/audit"
 	"budget-agent/internal/budgets"
 	"budget-agent/internal/dashboard"
 	"budget-agent/internal/mcp"
@@ -31,6 +31,7 @@ import (
 	"budget-agent/internal/tags"
 	"budget-agent/internal/transactions"
 	"budget-agent/internal/web"
+	"budget-agent/internal/workspaces"
 )
 
 const readinessTimeout = 2 * time.Second
@@ -58,7 +59,19 @@ func AuthMiddleware(db *sql.DB, next http.Handler, authMode string, tokenPepper 
 			if db != nil {
 				_ = accounts.EnsureDefaultWorkspace(r.Context(), db)
 			}
-			r = r.WithContext(context.WithValue(r.Context(), "workspace_id", "default"))
+			ws := "default"
+			// Honor an explicitly selected workspace in dev mode only if the
+			// default user is a member of it.
+			if db != nil {
+				if hid := r.Header.Get("X-Workspace-Id"); hid != "" && hid != "default" {
+					ok, _ := workspaces.NewService(db).HasMembership(r.Context(), "default", hid)
+					if ok {
+						ws = hid
+					}
+				}
+			}
+			r = r.WithContext(context.WithValue(r.Context(), "user_id", "default"))
+			r = r.WithContext(context.WithValue(r.Context(), "workspace_id", ws))
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -70,6 +83,7 @@ func AuthMiddleware(db *sql.DB, next http.Handler, authMode string, tokenPepper 
 			if tokenString != "" && db != nil {
 				// Token hashing/lookup is not implemented yet; keep the existing
 				// placeholder behavior so API/MCP clients are not blocked.
+				r = r.WithContext(context.WithValue(r.Context(), "user_id", "authenticated"))
 				r = r.WithContext(context.WithValue(r.Context(), "workspace_id", "authenticated"))
 				next.ServeHTTP(w, r)
 				return
@@ -87,11 +101,25 @@ func AuthMiddleware(db *sql.DB, next http.Handler, authMode string, tokenPepper 
 			writeError(w, http.StatusUnauthorized, "identity resolution unavailable")
 			return
 		}
-		ws, err := accounts.EnsurePersonalWorkspace(r.Context(), db, login)
-		if err != nil || ws == "" {
+		userID, personalWS, err := accounts.EnsurePersonalWorkspaceUser(r.Context(), db, login)
+		if err != nil || personalWS == "" {
 			writeError(w, http.StatusInternalServerError, "identity resolution failed")
 			return
 		}
+		ws := personalWS
+		if hid := r.Header.Get("X-Workspace-Id"); hid != "" && hid != personalWS {
+			ok, merr := workspaces.NewService(db).HasMembership(r.Context(), userID, hid)
+			if merr != nil {
+				writeError(w, http.StatusInternalServerError, "identity resolution failed")
+				return
+			}
+			if !ok {
+				writeError(w, http.StatusForbidden, "not a member of the requested workspace")
+				return
+			}
+			ws = hid
+		}
+		r = r.WithContext(context.WithValue(r.Context(), "user_id", userID))
 		r = r.WithContext(context.WithValue(r.Context(), "workspace_id", ws))
 		next.ServeHTTP(w, r)
 	})
@@ -183,6 +211,8 @@ func New(opts Options) http.Handler {
 	if opts.DB != nil {
 		asvc := accounts.NewService(opts.DB)
 		registerAccountRoutes(mux, asvc)
+		wsvc := workspaces.NewService(opts.DB)
+		registerWorkspaceRoutes(mux, wsvc)
 		tsvc := tags.NewService(opts.DB)
 		registerTagRoutes(mux, tsvc)
 		txsvc := transactions.NewService(opts.DB)
@@ -298,6 +328,18 @@ func registerAccountRoutes(mux *http.ServeMux, svc *accounts.Service) {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	})
+}
+
+func registerWorkspaceRoutes(mux *http.ServeMux, svc *workspaces.Service) {
+	mux.HandleFunc("GET /api/v1/workspaces", func(w http.ResponseWriter, r *http.Request) {
+		uid := userID(r)
+		list, err := svc.ListByUser(r.Context(), uid)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"workspaces": list})
 	})
 }
 
@@ -628,9 +670,19 @@ func normalizeRangeBound(raw string, endOfDay bool) (string, error) {
 	return value.UTC().Format(time.RFC3339), nil
 }
 
+func userID(r *http.Request) string {
+	if v := r.Context().Value("user_id"); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			return s
+		}
+	}
+	return ""
+}
 func workspaceID(r *http.Request) string {
-	if v := r.Header.Get("X-Workspace-Id"); v != "" {
-		return v
+	if v := r.Context().Value("workspace_id"); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			return s
+		}
 	}
 	return "default"
 }
@@ -975,7 +1027,7 @@ func registerAIRoutes(mux *http.ServeMux, opts Options) {
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]any{
-			"draft_id": id,
+			"draft_id":   id,
 			"expires_at": expires.Format(time.RFC3339),
 			"parsed": map[string]any{
 				"account_id":   accountID,
@@ -1087,14 +1139,14 @@ func registerReceiptRoutes(mux *http.ServeMux, opts Options) {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"id":          r.PathValue("id"),
-			"mime_type":   mime,
-			"byte_size":   size,
-			"sha256":      sha,
-			"ocr_status":  status,
-			"ocr_text":    text,
-			"ocr_json":    ocrjson,
-			"created_at":  created,
+			"id":         r.PathValue("id"),
+			"mime_type":  mime,
+			"byte_size":  size,
+			"sha256":     sha,
+			"ocr_status": status,
+			"ocr_text":   text,
+			"ocr_json":   ocrjson,
+			"created_at": created,
 		})
 	})
 }

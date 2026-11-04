@@ -43,9 +43,6 @@ func workspaceFromRequest(r *http.Request) string {
 			return s
 		}
 	}
-	if v := r.Header.Get("X-Workspace-Id"); v != "" {
-		return v
-	}
 	return "default"
 }
 
