@@ -1,0 +1,25 @@
+[Unit]
+Description=Budget Agent application container
+After=budget-agent-pod.service
+
+[Container]
+Image=localhost/budget-agent:latest
+Pod=budget-agent.pod
+User=65532
+UserNS=keep-id:uid=65532,gid=65532
+ReadOnly=true
+Tmpfs=/tmp
+NoNewPrivileges=true
+DropCapability=ALL
+Volume=%h/.local/share/budget-agent/data:/data:Z
+EnvironmentFile=%h/.config/budget-agent/budget-agent.env
+HealthCmd=/budget-agent healthcheck
+HealthInterval=30s
+HealthOnFailure=kill
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

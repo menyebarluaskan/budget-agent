@@ -1,0 +1,19 @@
+[Unit]
+Description=Tailscale sidecar for Budget Agent
+After=budget-agent-pod.service
+
+[Container]
+Image=docker.io/tailscale/tailscale:latest
+Pod=budget-agent.pod
+Environment=TS_HOSTNAME=budget-agent
+Environment=TS_USERSPACE=true
+Environment=TS_STATE_DIR=/var/lib/tailscale
+Environment=TS_SERVE_CONFIG=/etc/tailscale/serve.json
+Volume=%h/.local/share/budget-agent/tailscale:/var/lib/tailscale:Z
+Volume=%h/.config/budget-agent/serve.json:/etc/tailscale/serve.json:ro,Z
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

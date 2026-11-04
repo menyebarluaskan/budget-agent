@@ -1,0 +1,9 @@
+[Unit]
+Description=Budget Agent pod
+After=network-online.target
+
+[Pod]
+PodName=budget-agent
+
+[Install]
+WantedBy=default.target
