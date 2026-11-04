@@ -5,15 +5,20 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 	_ "time/tzdata"
+
+	_ "modernc.org/sqlite"
 
 	"budget-agent/internal/accounts"
 	"budget-agent/internal/ai"
@@ -25,13 +30,56 @@ import (
 const shutdownTimeout = 10 * time.Second
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
-		os.Exit(runHealthcheck())
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "healthcheck":
+			os.Exit(runHealthcheck())
+		case "backup":
+			os.Exit(runBackup(os.Args[2:]))
+		}
 	}
 	if err := run(); err != nil {
 		slog.Error("startup failed", "error", err)
 		os.Exit(1)
 	}
+}
+
+func runBackup(args []string) int {
+	fs := flag.NewFlagSet("backup", flag.ContinueOnError)
+	dest := fs.String("dest", "", "destination directory for the backup")
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	if *dest == "" {
+		fmt.Fprintln(os.Stderr, "--dest is required")
+		return 2
+	}
+	dbPath := os.Getenv("DATABASE_PATH")
+	if dbPath == "" {
+		fmt.Fprintln(os.Stderr, "DATABASE_PATH is required")
+		return 2
+	}
+	if err := os.MkdirAll(*dest, 0755); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	stamp := time.Now().UTC().Format("20060102T150405Z")
+	out := filepath.Join(*dest, "budget-"+stamp+".db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	defer db.Close()
+	// VACUUM INTO
+	_, err = db.Exec("VACUUM INTO '" + out + "'")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	fmt.Println("backup written to", out)
+	return 0
 }
 
 func runHealthcheck() int {
