@@ -97,8 +97,8 @@ older account and budget screens, unrelated to T-205. Tracked as T-209.
 | T-402 | Quadlet pod and container units with rootless config, data mounts, health checks, and hardening | `[x]` | `feat(deploy): add Quadlet pod and container units` |
 | T-403 | Tailscale sidecar via Quadlet and tailnet-only Serve exposure | `[x]` | `feat(deploy): add Quadlet pod and container units` |
 | T-404 | Backup and restore procedure for SQLite | `[x]` | `feat(ops): add SQLite backup command using VACUUM INTO` |
-| T-405 | Operational runbook, health checks, journald logging, and upgrade/rollback steps | `[ ]` | — |
-| T-406 | Install docs for symlinking units into `~/.config/containers/systemd`, lingering, start, and uninstall | `[ ]` | — |
+| T-405 | Operational runbook, health checks, journald logging, and upgrade/rollback steps | `[x]` | `docs(deploy): add Quadlet install and operations runbook` |
+| T-406 | Install docs for symlinking units into `~/.config/containers/systemd`, lingering, start, and uninstall | `[x]` | `docs(deploy): add Quadlet install and operations runbook` |
 
 ## Decisions (D1–D13)
 
