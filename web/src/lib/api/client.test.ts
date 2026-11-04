@@ -3,6 +3,7 @@ import {
 	ApiError,
 	createAccount,
 	createBudget,
+	createTag,
 	createTransaction,
 	createTransfer,
 	deleteAccount,
@@ -17,6 +18,7 @@ import {
 	listTransactions,
 	updateAccount,
 	updateBudget,
+	updateTag,
 	updateTransaction
 } from './client';
 import type { Account, Budget, Dashboard, Tag, Transaction } from './types';
@@ -218,6 +220,44 @@ describe('lookup API', () => {
 		const fetcher = vi.fn(async () => response({ tags: [tag] }));
 
 		await expect(listTags(fetcher)).resolves.toEqual([tag]);
+	});
+
+	it('creates a tag', async () => {
+		const tag: Tag = {
+			id: 'food',
+			workspace_id: 'default',
+			name: 'Food',
+			color: '#f97316',
+			created_at: '2026-01-01T00:00:00Z'
+		};
+		const fetcher = vi.fn(async () => response(tag, 201));
+
+		await expect(createTag({ name: 'Food', color: '#f97316' }, fetcher)).resolves.toEqual(tag);
+		expect(fetcher).toHaveBeenCalledWith('/api/v1/tags', {
+			method: 'POST',
+			body: JSON.stringify({ name: 'Food', color: '#f97316' }),
+			headers: { Accept: 'application/json', 'Content-Type': 'application/json' }
+		});
+	});
+
+	it('updates a tag name and color', async () => {
+		const tag: Tag = {
+			id: 'food',
+			workspace_id: 'default',
+			name: 'Groceries',
+			color: '#22c55e',
+			created_at: '2026-01-01T00:00:00Z'
+		};
+		const fetcher = vi.fn(async () => response(tag));
+
+		await expect(
+			updateTag('food', { name: 'Groceries', color: '#22c55e' }, fetcher)
+		).resolves.toEqual(tag);
+		expect(fetcher).toHaveBeenCalledWith('/api/v1/tags/food', {
+			method: 'PATCH',
+			body: JSON.stringify({ name: 'Groceries', color: '#22c55e' }),
+			headers: { Accept: 'application/json', 'Content-Type': 'application/json' }
+		});
 	});
 });
 

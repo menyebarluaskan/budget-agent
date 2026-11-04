@@ -263,6 +263,10 @@ func registerTagRoutes(mux *http.ServeMux, svc *tags.Service) {
 		ws := workspaceID(r)
 		t, err := svc.Create(r.Context(), tags.CreateInput{WorkspaceID: ws, Name: body.Name, Color: body.Color})
 		if err != nil {
+			if err == tags.ErrNameTaken {
+				writeError(w, http.StatusConflict, err.Error())
+				return
+			}
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -295,6 +299,10 @@ func registerTagRoutes(mux *http.ServeMux, svc *tags.Service) {
 		if err != nil {
 			if err == tags.ErrNotFound {
 				writeError(w, http.StatusNotFound, "not found")
+				return
+			}
+			if err == tags.ErrNameTaken {
+				writeError(w, http.StatusConflict, err.Error())
 				return
 			}
 			writeError(w, http.StatusBadRequest, err.Error())

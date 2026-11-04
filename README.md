@@ -43,7 +43,8 @@ same API through MCP.
 - Budgeting dashboard.
 - Transaction list with URL-reflected filters and cursor pagination.
 - Create, edit, and delete transactions with signed amounts, accounts, tags, and
-  dates.
+  dates. Tags can be created, renamed, and recolored inline while editing a
+  transaction.
 - Spending graphs and what-if simulations.
 - PWA-friendly, mobile-first layout.
 

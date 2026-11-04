@@ -91,6 +91,7 @@
 			busy={saving}
 			{error}
 			onSubmit={save}
+			onTagsChange={(next) => (tags = next)}
 		/>
 	</div>
 {/if}

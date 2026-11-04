@@ -67,6 +67,7 @@ screens are next.
 | T-205 | Spending charts and what-if simulation | `[ ]` | — |
 | T-206 | PWA polish, accessibility pass, and performance budget check | `[ ]` | — |
 | T-207 | Workspace switcher and personal/shared workspace UI, hidden until more than one workspace exists | `[ ]` | — |
+| T-208 | Inline tag picker in the transaction form with create, rename, and predefined color editing | `[x]` | `feat(web): add inline tag management to transactions` |
 
 ## Milestone 3 — AI, MCP, and WhatsApp
 
@@ -125,3 +126,4 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 | 2026-11-02 | D10 resolved as MIT; M0 foundation complete. |
 | 2026-11-03 | M1 backend core complete; T-201 added the app shell, design tokens, and responsive navigation. |
 | 2026-11-03 | T-202 dashboard and aggregate API completed. |
+| 2026-11-04 | T-208 added inline tag creation, rename, and color editing to the transaction form. |

@@ -21,6 +21,13 @@ export interface Tag {
 	created_at: string;
 }
 
+export interface TagInput {
+	name: string;
+	color?: string;
+}
+
+export type TagUpdate = Partial<TagInput>;
+
 export type TransactionSource = 'manual' | 'whatsapp' | 'mcp' | 'receipt' | 'import';
 
 export interface Transaction {

@@ -132,6 +132,58 @@ paths:
           description: Tag created
         "400":
           description: Bad request
+        "409":
+          description: A tag with that name already exists
+  /api/v1/tags/{id}:
+    get:
+      summary: Get tag
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tag details
+        "404":
+          description: Not found
+    patch:
+      summary: Rename or recolor a tag
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/UpdateTagInput"
+      responses:
+        "200":
+          description: Updated tag
+        "400":
+          description: Bad request
+        "404":
+          description: Not found
+        "409":
+          description: A tag with that name already exists
+    delete:
+      summary: Delete a tag
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Tag deleted
+        "404":
+          description: Not found
   /api/v1/transactions:
     get:
       summary: List transactions
@@ -564,11 +616,16 @@ components:
       properties:
         name:
           type: string
+          description: Unique within the workspace, case-insensitive.
+        color:
+          type: string
+          description: Hex color used by the web UI.
     UpdateTagInput:
       type: object
       properties:
         name:
           type: string
+          description: Unique within the workspace, case-insensitive.
         color:
           type: string
     Transaction:

@@ -193,6 +193,7 @@
 				busy={saving}
 				error={actionError}
 				onSubmit={save}
+				onTagsChange={(next) => (tags = next)}
 			/>
 		</div>
 	{:else}

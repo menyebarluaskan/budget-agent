@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import type { Account, Tag, Transaction, TransactionInput } from '$lib/api/types';
 	import { untrack } from 'svelte';
+	import TagPicker from '$lib/components/tags/TagPicker.svelte';
 	import {
 		currencyFractionDigits,
 		dateOnlyFromTimestamp,
@@ -22,7 +23,8 @@
 		error = null,
 		cancelLabel = 'Cancel',
 		onCancel,
-		onSubmit
+		onSubmit,
+		onTagsChange
 	}: {
 		accounts: Account[];
 		tags: Tag[];
@@ -33,6 +35,7 @@
 		cancelLabel?: string;
 		onCancel?: () => void;
 		onSubmit: (input: TransactionInput) => void | Promise<void>;
+		onTagsChange?: (tags: Tag[]) => void;
 	} = $props();
 
 	const accountOptions = $derived(
@@ -58,6 +61,7 @@
 	let description = $state(initial.description);
 	let notes = $state(initial.notes);
 	let selectedTagIDs = $state<string[]>(initial.tagIDs);
+	let tagOptions = $derived(tags);
 	let localError = $state<string | null>(null);
 
 	const selectedAccount = $derived(accounts.find((account) => account.id === accountID));
@@ -69,10 +73,13 @@
 	);
 	const visibleError = $derived(localError ?? error);
 
-	function toggleTag(tagID: string) {
-		selectedTagIDs = selectedTagIDs.includes(tagID)
-			? selectedTagIDs.filter((id) => id !== tagID)
-			: [...selectedTagIDs, tagID];
+	function updateSelectedTags(ids: string[]) {
+		selectedTagIDs = ids;
+	}
+
+	function updateTags(next: Tag[]) {
+		tagOptions = next;
+		onTagsChange?.(next);
 	}
 
 	function addSign(sign: '+' | '-') {
@@ -241,39 +248,12 @@
 					bind:value={notes}></textarea>
 			</div>
 
-			<fieldset>
-				<legend class="text-sm font-medium">Tags</legend>
-				{#if tags.length === 0}
-					<p class="mt-1.5 text-sm text-ink-muted">
-						No tags yet. Create tags from the API or the settings screen.
-					</p>
-				{:else}
-					<div class="mt-2 flex flex-wrap gap-2">
-						{#each tags as tag (tag.id)}
-							<label
-								class="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full border px-3 text-sm transition-colors {selectedTagIDs.includes(
-									tag.id
-								)
-									? 'border-accent bg-accent/10 text-ink'
-									: 'border-line bg-surface text-ink-muted hover:bg-surface-muted'}"
-							>
-								<input
-									type="checkbox"
-									class="size-4 accent-[var(--token-accent)]"
-									checked={selectedTagIDs.includes(tag.id)}
-									onchange={() => toggleTag(tag.id)}
-								/>
-								<span
-									class="size-2.5 rounded-full"
-									style:background-color={tag.color || 'var(--token-accent)'}
-									aria-hidden="true"
-								></span>
-								{tag.name}
-							</label>
-						{/each}
-					</div>
-				{/if}
-			</fieldset>
+			<TagPicker
+				tags={tagOptions}
+				selectedIDs={selectedTagIDs}
+				onSelectedChange={updateSelectedTags}
+				onTagsChange={updateTags}
+			/>
 		</div>
 	</section>
 

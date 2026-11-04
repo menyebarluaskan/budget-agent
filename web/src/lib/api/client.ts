@@ -9,6 +9,8 @@ import type {
 	Dashboard,
 	DateRange,
 	Tag,
+	TagInput,
+	TagUpdate,
 	Transaction,
 	TransactionFilters,
 	TransactionInput,
@@ -119,6 +121,22 @@ export function listTags(fetcher: Fetcher = fetch): Promise<Tag[]> {
 	);
 }
 
+/** Create a tag with a unique name and a hex color. */
+export function createTag(input: TagInput, fetcher: Fetcher = fetch): Promise<Tag> {
+	return requestJSON<Tag>('/api/v1/tags', fetcher, {
+		method: 'POST',
+		body: JSON.stringify(input)
+	});
+}
+
+/** Rename or recolor a tag. */
+export function updateTag(id: string, input: TagUpdate, fetcher: Fetcher = fetch): Promise<Tag> {
+	return requestJSON<Tag>(`/api/v1/tags/${encodeURIComponent(id)}`, fetcher, {
+		method: 'PATCH',
+		body: JSON.stringify(input)
+	});
+}
+
 /** Fetch one cursor-paginated transaction page. */
 export function listTransactions(
 	filters: TransactionFilters = {},
@@ -197,10 +215,7 @@ export function getAccount(id: string, fetcher: Fetcher = fetch): Promise<Accoun
 }
 
 /** Fetch a budget summary (spent per tag). */
-export function getBudgetSummary(
-	id: string,
-	fetcher: Fetcher = fetch
-): Promise<BudgetSummary[]> {
+export function getBudgetSummary(id: string, fetcher: Fetcher = fetch): Promise<BudgetSummary[]> {
 	return requestJSON<{ summary?: BudgetSummary[] } | BudgetSummary[]>(
 		`/api/v1/budgets/${encodeURIComponent(id)}/summary`,
 		fetcher
