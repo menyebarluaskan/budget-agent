@@ -96,6 +96,75 @@ The full rationale, data model, API surface, security rules, and decisions are i
 | M3 — AI, MCP, WhatsApp | Not started |
 | M4 — Deployment and operations | Not started |
 
+## Testing
+
+### Automated
+
+```sh
+make check          # Go fmt/vet + frontend lint/typecheck + tests + build
+make test           # Go + frontend unit tests only
+make web-check      # SvelteKit type check
+```
+
+### Manual: web UI
+
+1. `make dev` (API on :8080, Vite on :5173).
+2. Open http://127.0.0.1:5173. In dev mode (`AUTH_MODE=dev`) there is no login.
+3. Add an account, create tags, add transactions, create a budget, view the dashboard and charts.
+
+### Manual: AI parse-transaction
+
+Requires `AI_ENABLED=true` and a configured provider (hosted or local Ollama/LM Studio).
+
+```sh
+AI_ENABLED=true AI_BASE_URL=http://127.0.0.1:11434/v1 AI_MODEL=llama3.2 make dev-api
+curl -s -X POST http://127.0.0.1:8080/api/v1/ai/parse-transaction \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"coffee 150 at Starbucks"}'
+```
+
+Returns a `draft_id` plus parsed fields. Nothing is persisted until you confirm the draft.
+
+### Manual: MCP endpoint
+
+```sh
+curl -s -X POST http://127.0.0.1:8080/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+```
+
+Then call tools (`list_accounts`, `query_transactions`, `create_transaction_draft`, `confirm_transaction_draft`, etc.).
+
+### Manual: receipt upload + OCR
+
+```sh
+curl -s -X POST http://127.0.0.1:8080/api/v1/receipts \
+  -H 'Content-Type: image/jpeg' --data-binary @receipt.jpg
+```
+
+Returns `receipt_id`, `ocr_status`, `ocr_text` (Tesseract, if installed), and `ocr_json` (vision LLM, if AI enabled). Poll `GET /api/v1/receipts/{id}`.
+
+### Manual: backup
+
+```sh
+DATABASE_PATH=$PWD/.local/data/budget.db bin/budget-agent backup --dest /tmp/bk
+```
+
+### Deployment smoke
+
+```sh
+make image
+podman run --rm -p 8080:8080 \
+  -e DATABASE_PATH=/data/budget.db -e RECEIPTS_DIR=/data/receipts \
+  -e BASE_URL=http://localhost:8080 -e AUTH_MODE=dev \
+  -e TOKEN_PEPPER=dev -v /tmp/scratchpad/data:/data:Z \
+  budget-agent:latest
+curl -s http://127.0.0.1:8080/healthz
+```
+
+Quadlet generator dry-run: see deploy/quadlet/README.md.
+
 ## Development
 
 ### Prerequisites
