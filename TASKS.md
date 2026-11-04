@@ -85,7 +85,9 @@ older account and budget screens, unrelated to T-205. Tracked as T-209.
 | T-302c | Prompt fixtures and golden tests for parsing accuracy | `[x]` | `test(ai): add prompt fixture and golden test for parsing` |
 | T-303 | WhatsApp webhook with signature verification, allowlist, and idempotency | `[!]` | Deferred by D5 |
 | T-304 | Receipt upload and vision-based OCR into a confirmable draft | `[x]` | `feat(receipts): add receipt upload with tesseract + vision LLM OCR` |
-| T-305 | Audit trail for AI-assisted writes | `[ ]` | — |
+| T-305 | Audit trail for AI-assisted writes | `[x]` | `feat(audit): instrument draft confirm/reject, receipt upload, and failed auth` |
+| T-305a | Audit service + Log helper + unit test | `[x]` | `feat(audit): instrument draft confirm/reject, receipt upload, and failed auth` |
+| T-305b | Instrument draft confirm/reject, receipt upload, failed auth | `[x]` | `feat(audit): instrument draft confirm/reject, receipt upload, and failed auth` |
 
 ## Milestone 4 — Deployment and operations
 

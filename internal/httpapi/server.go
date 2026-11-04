@@ -21,6 +21,7 @@ import (
 
 	"budget-agent/internal/accounts"
 	"budget-agent/internal/ai"
+	"budget-agent/internal/audit"
 	"budget-agent/internal/analytics"
 	"budget-agent/internal/budgets"
 	"budget-agent/internal/dashboard"
@@ -76,6 +77,7 @@ func AuthMiddleware(db *sql.DB, next http.Handler, authMode string, tokenPepper 
 		// Tailnet identity: trust the header only because we bind to loopback.
 		login := r.Header.Get("Tailscale-User-Login")
 		if login == "" {
+			_ = audit.Log(r.Context(), db, audit.Entry{WorkspaceID: "unknown", Actor: "anonymous", Action: "auth.failed", EntityType: "auth", EntityID: r.URL.Path})
 			writeError(w, http.StatusUnauthorized, "missing tailnet identity")
 			return
 		}
@@ -1050,6 +1052,7 @@ func registerReceiptRoutes(mux *http.ServeMux, opts Options) {
 		_, _ = opts.DB.ExecContext(r.Context(), `
 			UPDATE receipts SET ocr_status=?, ocr_text=?, ocr_json=? WHERE id=?`,
 			status, rawText, ocrJSON, id)
+		_ = audit.Log(r.Context(), opts.DB, audit.Entry{WorkspaceID: ws, Actor: "user", Action: "receipt.uploaded", EntityType: "receipt", EntityID: id})
 		writeJSON(w, http.StatusCreated, map[string]any{
 			"receipt_id": id,
 			"ocr_status": status,

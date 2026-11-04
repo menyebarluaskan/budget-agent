@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"budget-agent/internal/accounts"
+	"budget-agent/internal/audit"
 	"budget-agent/internal/budgets"
 	"budget-agent/internal/dashboard"
 	"budget-agent/internal/tags"
@@ -218,6 +219,7 @@ func registerTools(server *mcpSDK.Server, deps Deps, ws string) {
 		}
 		now := time.Now().UTC().Format(time.RFC3339)
 		_, _ = deps.DB.ExecContext(ctx, `UPDATE drafts SET status='confirmed', confirmed_at=? WHERE id=?`, now, in.DraftID)
+		_ = audit.Log(ctx, deps.DB, audit.Entry{WorkspaceID: ws, Actor: "mcp", Action: "draft.confirmed", EntityType: "transaction", EntityID: t.ID})
 		return nil, map[string]any{"transaction": t}, nil
 	})
 
@@ -233,6 +235,7 @@ func registerTools(server *mcpSDK.Server, deps Deps, ws string) {
 		if n == 0 {
 			return nil, nil, fmt.Errorf("draft not found or not pending")
 		}
+		_ = audit.Log(ctx, deps.DB, audit.Entry{WorkspaceID: ws, Actor: "mcp", Action: "draft.rejected", EntityType: "draft", EntityID: in.DraftID})
 		return nil, map[string]any{"rejected": true}, nil
 	})
 
