@@ -8,7 +8,7 @@ WEB_DEPS := $(WEB_DIR)/node_modules/.installed
 
 .DEFAULT_GOAL := help
 
-.PHONY: help dev dev-api dev-web web-install web-build web-check web-lint web-test go-test build test fmt fmt-check lint check clean
+.PHONY: help dev dev-api dev-web web-install web-build web-check web-lint web-test go-test build test fmt fmt-check lint check clean image deploy
 
 help: ## Show available targets
 	@printf 'Targets:\n'
@@ -81,3 +81,11 @@ check: lint web-check test web-build ## Run the full local quality gate
 
 clean: ## Remove generated build output
 	rm -rf $(BIN_DIR) $(WEB_DIR)/build $(WEB_DIR)/.svelte-kit $(WEB_DIR)/coverage $(WEB_DIR)/test-results $(WEB_DIR)/playwright-report
+
+image: web-build ## Build the container image with Podman
+	podman build -f Containerfile -t budget-agent:latest .
+
+deploy: image ## Build image and print install reminder
+	@printf 'Image built. Install units with:\n'
+	@printf '  ln -sf "$$PWD/deploy/quadlet/"*.pod "$$PWD/deploy/quadlet/"*.container ~/.config/containers/systemd/\n'
+	@printf '  systemctl --user daemon-reload && systemctl --user start budget-agent-pod.service\n'
