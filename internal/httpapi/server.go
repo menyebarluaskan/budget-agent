@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -29,6 +30,7 @@ import (
 	"budget-agent/internal/ocr"
 	"budget-agent/internal/tags"
 	"budget-agent/internal/transactions"
+	"budget-agent/internal/web"
 )
 
 const readinessTimeout = 2 * time.Second
@@ -194,7 +196,18 @@ func New(opts Options) http.Handler {
 		registerReceiptRoutes(mux, opts)
 	}
 	authed := AuthMiddleware(opts.DB, mux, opts.AuthMode, opts.TokenPepper)
-	return withMiddleware(logger, authed)
+	// Serve embedded web UI with SPA fallback for client-side routes, without
+	// registering a catch-all pattern that conflicts with /mcp and /api routes.
+	wrapped := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Path
+		if p == "/" || (!strings.HasPrefix(p, "/api/") && p != "/mcp" && !strings.HasPrefix(p, "/mcp/") &&
+			p != "/healthz" && p != "/readyz" && !strings.HasPrefix(p, "/webhooks/")) {
+			serveStatic(w, r)
+			return
+		}
+		authed.ServeHTTP(w, r)
+	})
+	return withMiddleware(logger, wrapped)
 }
 
 func registerAccountRoutes(mux *http.ServeMux, svc *accounts.Service) {
@@ -1084,4 +1097,27 @@ func registerReceiptRoutes(mux *http.ServeMux, opts Options) {
 			"created_at":  created,
 		})
 	})
+}
+
+func serveStatic(w http.ResponseWriter, r *http.Request) {
+	sub, err := fs.Sub(web.Build, "static")
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	fsys := http.FS(sub)
+	fileServer := http.FileServer(fsys)
+	// Try the requested file; fall back to index.html for SPA routes.
+	path := r.URL.Path
+	if path == "/" {
+		path = "/index.html"
+	}
+	if f, err := sub.Open(path[1:]); err == nil {
+		f.Close()
+		fileServer.ServeHTTP(w, r)
+		return
+	}
+	// SPA fallback
+	r.URL.Path = "/"
+	fileServer.ServeHTTP(w, r)
 }

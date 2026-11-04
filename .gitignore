@@ -5,6 +5,10 @@
 coverage.out
 coverage.html
 
+# Embedded frontend build (populated by make web-build)
+/internal/web/static/*
+!/internal/web/static/.gitkeep
+
 # Local runtime data
 /.local/
 /data/

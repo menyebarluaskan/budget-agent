@@ -89,7 +89,7 @@ func TestMethodsNotAllowed(t *testing.T) {
 
 func TestUnknownRoute(t *testing.T) {
 	handler := New(Options{Logger: testLogger()})
-	req := httptest.NewRequest(http.MethodGet, "/missing", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/does-not-exist", nil)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)

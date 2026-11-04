@@ -93,7 +93,7 @@ older account and budget screens, unrelated to T-205. Tracked as T-209.
 
 | ID | Task | Status | Commit |
 | --- | --- | --- | --- |
-| T-401 | Multi-stage container image with embedded frontend | `[ ]` | — |
+| T-401 | Multi-stage container image with embedded frontend | `[x]` | `build: add multi-stage Containerfile with embedded frontend` |
 | T-402 | Quadlet pod and container units with rootless config, data mounts, health checks, and hardening | `[ ]` | — |
 | T-403 | Tailscale sidecar via Quadlet and tailnet-only Serve exposure | `[ ]` | — |
 | T-404 | Backup and restore procedure for SQLite | `[ ]` | — |

@@ -39,6 +39,10 @@ dev-web: $(WEB_DEPS) ## Run the SvelteKit dev server on 127.0.0.1:5173
 
 web-build: $(WEB_DEPS) ## Build the static web UI
 	cd $(WEB_DIR) && $(PNPM) build
+	@rm -rf internal/web/static
+	@mkdir -p internal/web/static
+	@cp -r $(WEB_DIR)/build/. internal/web/static/
+	@touch internal/web/static/.gitkeep
 
 web-check: $(WEB_DEPS) ## Type-check the web UI
 	cd $(WEB_DIR) && $(PNPM) check
