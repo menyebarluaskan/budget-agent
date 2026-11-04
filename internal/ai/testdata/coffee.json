@@ -1,0 +1,9 @@
+{
+  "choices": [
+    {
+      "message": {
+        "content": "{\"account_name\":\"Wallet\",\"amount_minor\":-15000,\"occurred_at\":\"2026-11-04T10:00:00Z\",\"description\":\"coffee\",\"notes\":\"\",\"tag_names\":[\"food\",\"drinks\"],\"confidence\":0.92}"
+      }
+    }
+  ]
+}
