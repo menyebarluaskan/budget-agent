@@ -78,7 +78,7 @@ older account and budget screens, unrelated to T-205. Tracked as T-209.
 
 | ID | Task | Status | Commit |
 | --- | --- | --- | --- |
-| T-301 | MCP server with transaction, query, budget, and receipt tools | `[ ]` | — |
+| T-301 | MCP server with transaction, query, budget, and receipt tools | `[x]` | `feat(mcp): add MCP server with transaction, query, budget, and receipt tools` |
 | T-302 | AI provider abstraction and chat-to-transaction draft flow | `[ ]` | — |
 | T-303 | WhatsApp webhook with signature verification, allowlist, and idempotency | `[!]` | Deferred by D5 |
 | T-304 | Receipt upload and vision-based OCR into a confirmable draft | `[ ]` | — |

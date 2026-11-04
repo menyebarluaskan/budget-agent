@@ -17,6 +17,7 @@ import (
 	"budget-agent/internal/analytics"
 	"budget-agent/internal/budgets"
 	"budget-agent/internal/dashboard"
+	"budget-agent/internal/mcp"
 	"budget-agent/internal/tags"
 	"budget-agent/internal/transactions"
 )
@@ -175,6 +176,7 @@ func New(opts Options) http.Handler {
 		registerBudgetRoutes(mux, bsvc)
 		registerAnalyticsRoutes(mux, analytics.NewService(opts.DB, opts.DefaultCurrency))
 		registerDashboardRoutes(mux, dashboard.NewService(opts.DB, opts.DefaultCurrency))
+		mux.Handle("/mcp", mcp.NewHandler(mcp.Deps{DB: opts.DB, DefaultCurrency: opts.DefaultCurrency}))
 	}
 	authed := AuthMiddleware(opts.DB, mux, opts.AuthMode, opts.TokenPepper)
 	return withMiddleware(logger, authed)
