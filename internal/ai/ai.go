@@ -13,21 +13,21 @@ import (
 
 // ParseInput is the input to ParseTransaction.
 type ParseInput struct {
-	Text      string   `json:"text"`
-	Accounts  []string `json:"accounts,omitempty"`
-	TagNames  []string `json:"tag_names,omitempty"`
-	Currency  string   `json:"currency,omitempty"`
+	Text     string   `json:"text"`
+	Accounts []string `json:"accounts,omitempty"`
+	TagNames []string `json:"tag_names,omitempty"`
+	Currency string   `json:"currency,omitempty"`
 }
 
 // TransactionDraft is the structured output of ParseTransaction.
 type TransactionDraft struct {
-	AccountName  string   `json:"account_name"`
-	AmountMinor  int64    `json:"amount_minor"`
-	OccurredAt   string   `json:"occurred_at,omitempty"`
-	Description  string   `json:"description,omitempty"`
-	Notes        string   `json:"notes,omitempty"`
-	TagNames     []string `json:"tag_names,omitempty"`
-	Confidence   float64  `json:"confidence,omitempty"`
+	AccountName string   `json:"account_name"`
+	AmountMinor int64    `json:"amount_minor"`
+	OccurredAt  string   `json:"occurred_at,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Notes       string   `json:"notes,omitempty"`
+	TagNames    []string `json:"tag_names,omitempty"`
+	Confidence  float64  `json:"confidence,omitempty"`
 }
 
 // ReceiptDraft is the structured output of ExtractReceipt.
@@ -76,8 +76,8 @@ type chatMessage struct {
 }
 
 type chatRequest struct {
-	Model          string        `json:"model"`
-	Messages       []chatMessage `json:"messages"`
+	Model          string         `json:"model"`
+	Messages       []chatMessage  `json:"messages"`
 	ResponseFormat map[string]any `json:"response_format,omitempty"`
 }
 
@@ -165,10 +165,10 @@ func NewFromConfig(enabled bool, baseURL, apiKey, model, visionModel string, tim
 	}), true
 }
 
-
 const receiptSystemPrompt = `You are a receipt parser. Given a receipt image, extract: merchant, occurred_at (ISO8601 or ""), total_minor (integer, cents), tax_minor (integer or 0), tag_names (array of suggested tags), line_items (array of "name: amount" strings). Respond ONLY with a JSON object with those keys. All fields nullable/optional; use 0 or "" when unknown.`
 
 const receiptTextSystemPrompt = `You are a receipt parser. Given OCR text from a receipt, extract: merchant, occurred_at (ISO8601 or ""), total_minor (integer, cents), tax_minor (integer or 0), tag_names (array of suggested tags), line_items (array of "name: amount" strings). Respond ONLY with a JSON object with those keys. All fields nullable/optional; use 0 or "" when unknown.`
+
 func join(ss []string) string {
 	out := ""
 	for i, s := range ss {
@@ -197,8 +197,8 @@ func (o *OpenAI) ExtractReceipt(ctx context.Context, image []byte, mime string) 
 		Content []contentPart `json:"content"`
 	}
 	type req struct {
-		Model          string `json:"model"`
-		Messages       []msg  `json:"messages"`
+		Model          string         `json:"model"`
+		Messages       []msg          `json:"messages"`
 		ResponseFormat map[string]any `json:"response_format,omitempty"`
 	}
 	body := req{
