@@ -117,6 +117,7 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 - [x] D11 — GitHub Actions for `menyebarluaskan/budget-agent`; `make check` is the local and CI gate.
 - [ ] D12 — Recommendation engine.
 - [ ] D13 — Receipt privacy.
+- [ ] D14 — WhatsApp number-to-workspace mapping (deferred with D5).
 
 ## Changelog
 
