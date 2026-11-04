@@ -4,8 +4,10 @@ import {
 	dateOnlyFromTimestamp,
 	formatDate,
 	formatDateRange,
+	formatDayMonth,
 	formatMinorForInput,
 	formatMoney,
+	formatMonthShort,
 	formatMonthYear,
 	formatSignedMoney,
 	monthRange,
@@ -64,6 +66,12 @@ describe('date formatting', () => {
 	it('formats date-only values without a timezone shift', () => {
 		expect(formatDate('2026-11-05')).toBe('Nov 5, 2026');
 		expect(formatMonthYear('2026-11-05')).toBe('November 2026');
+		expect(formatMonthYear('2026-11')).toBe('November 2026');
+	});
+
+	it('formats compact chart labels', () => {
+		expect(formatMonthShort('2026-11')).toBe('Nov');
+		expect(formatDayMonth('2026-11-05')).toBe('Nov 5');
 	});
 
 	it('collapses a range within one month', () => {

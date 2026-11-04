@@ -10,7 +10,9 @@ import {
 	deleteBudget,
 	deleteTransaction,
 	getBudget,
+	getBudgetTrend,
 	getDashboard,
+	getSpendingAnalytics,
 	getTransaction,
 	listAccounts,
 	listBudgets,
@@ -21,7 +23,15 @@ import {
 	updateTag,
 	updateTransaction
 } from './client';
-import type { Account, Budget, Dashboard, Tag, Transaction } from './types';
+import type {
+	Account,
+	Budget,
+	BudgetTrend,
+	Dashboard,
+	SpendingAnalytics,
+	Tag,
+	Transaction
+} from './types';
 
 const dashboard: Dashboard = {
 	from: '2026-11-01',
@@ -70,6 +80,30 @@ describe('getDashboard', () => {
 
 		await expect(getDashboard({ from: '2026-11-01', to: '2026-11-30' }, fetcher)).rejects.toEqual(
 			new ApiError(502, 'Request failed with status 502')
+		);
+	});
+});
+
+describe('getSpendingAnalytics', () => {
+	const analytics: SpendingAnalytics = {
+		from: '2026-11-01',
+		to: '2026-11-30',
+		currency: 'IDR',
+		total_spent_minor: 25000,
+		untagged_minor: 0,
+		tags: [{ tag_id: 'food', name: 'Food', color: '#f97316', spent_minor: 25000 }],
+		trend: [{ month: '2026-11', income_minor: 0, expense_minor: 25000, net_minor: -25000 }]
+	};
+
+	it('requests the range and month window', async () => {
+		const fetcher = vi.fn(async () => response(analytics));
+
+		const result = await getSpendingAnalytics({ from: '2026-11-01', to: '2026-11-30' }, 6, fetcher);
+
+		expect(result).toEqual(analytics);
+		expect(fetcher).toHaveBeenCalledWith(
+			'/api/v1/analytics/spending?from=2026-11-01&to=2026-11-30&months=6',
+			{ headers: { Accept: 'application/json' } }
 		);
 	});
 });
@@ -367,6 +401,33 @@ describe('budget API', () => {
 
 		await expect(getBudget('b 1', fetcher)).resolves.toEqual(budgetFixture);
 		expect(fetcher).toHaveBeenCalledWith('/api/v1/budgets/b%201', {
+			headers: { Accept: 'application/json' }
+		});
+	});
+
+	it('gets a budget trend with optional parameters', async () => {
+		const trend: BudgetTrend = {
+			budget_id: 'b1',
+			name: 'Groceries',
+			period: 'monthly',
+			currency: 'IDR',
+			amount_minor: 500000,
+			periods: [
+				{
+					start: '2026-11-01',
+					end: '2026-11-30',
+					spent_minor: 250000,
+					amount_minor: 500000,
+					remaining_minor: 250000
+				}
+			]
+		};
+		const fetcher = vi.fn(async () => response(trend));
+
+		await expect(getBudgetTrend('b 1', { periods: 6, to: '2026-11-30' }, fetcher)).resolves.toEqual(
+			trend
+		);
+		expect(fetcher).toHaveBeenCalledWith('/api/v1/budgets/b%201/trend?periods=6&to=2026-11-30', {
 			headers: { Accept: 'application/json' }
 		});
 	});

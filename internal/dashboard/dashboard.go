@@ -150,7 +150,7 @@ func (s *Service) Build(ctx context.Context, workspaceID string, from, to time.T
 		carry := int64(0)
 		spent := int64(0)
 		for i, period := range entry.periods {
-			spent = spentInPeriod(entry.budget, period, txList)
+			spent = budgets.SpentInPeriod(entry.budget, period, txList)
 			if i == len(entry.periods)-1 {
 				break
 			}
@@ -175,41 +175,6 @@ func (s *Service) Build(ctx context.Context, workspaceID string, from, to time.T
 	}
 
 	return result, nil
-}
-
-func spentInPeriod(budget budgets.Budget, period budgets.Period, txList []transactions.Transaction) int64 {
-	var sum int64
-	for _, tx := range txList {
-		if tx.TransferID != nil {
-			continue
-		}
-		occurred, err := time.Parse(time.RFC3339, tx.OccurredAt)
-		if err != nil || occurred.Before(period.Start) || !occurred.Before(period.End) {
-			continue
-		}
-		if budget.AccountID != nil && *budget.AccountID != tx.AccountID {
-			continue
-		}
-		if !hasAnyTag(tx.TagIDs, budget.TagIDs) {
-			continue
-		}
-		sum += tx.AmountMinor
-	}
-	if sum >= 0 {
-		return 0
-	}
-	return -sum
-}
-
-func hasAnyTag(transactionTags, budgetTags []string) bool {
-	for _, transactionTag := range transactionTags {
-		for _, budgetTag := range budgetTags {
-			if transactionTag == budgetTag {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func startOfDay(t time.Time) time.Time {

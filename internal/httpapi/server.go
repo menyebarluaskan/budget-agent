@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"budget-agent/internal/accounts"
+	"budget-agent/internal/analytics"
 	"budget-agent/internal/budgets"
 	"budget-agent/internal/dashboard"
 	"budget-agent/internal/tags"
@@ -145,6 +146,7 @@ func New(opts Options) http.Handler {
 		registerTransactionRoutes(mux, txsvc)
 		bsvc := budgets.NewService(opts.DB)
 		registerBudgetRoutes(mux, bsvc)
+		registerAnalyticsRoutes(mux, analytics.NewService(opts.DB, opts.DefaultCurrency))
 		registerDashboardRoutes(mux, dashboard.NewService(opts.DB, opts.DefaultCurrency))
 	}
 	return withMiddleware(logger, mux)

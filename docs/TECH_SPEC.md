@@ -298,7 +298,9 @@ Errors use RFC 9457 `application/problem+json`.
 | `PATCH` | `/budgets/{id}` | Update |
 | `DELETE` | `/budgets/{id}` | Delete |
 | `GET` | `/budgets/{id}/summary` | Period progress |
+| `GET` | `/budgets/{id}/trend` | Recent periods with spending for the burn-down chart |
 | `GET` | `/dashboard` | Balance, period spending, budget progress, recent transactions |
+| `GET` | `/analytics/spending` | Spending by tag and the monthly income/expense trend |
 | `GET` | `/summary` | Income, expense, net, by tag/account |
 | `GET` | `/recommendations` | Rule-based spending guidance |
 | `POST` | `/receipts` | Upload an image and start OCR |
@@ -319,6 +321,12 @@ Also: `POST /webhooks/whatsapp`, `GET /webhooks/whatsapp` (verification), and
 - `GET /dashboard` accepts an inclusive `from`/`to` date pair; both default to
   the first and last day of the current month. The response excludes transfers
   from income, expense, and budget totals but includes them in the recent list.
+- `GET /analytics/spending` accepts the same inclusive `from`/`to` pair plus
+  `months` (default 6, max 24). Tag totals cover the exact range, while the
+  trend uses `months` full calendar months ending with the month of `to`.
+- `GET /budgets/{id}/trend` accepts `to` (default today) and `periods` (default
+  6, max 24). It returns read-only per-period spending for the burn-down chart;
+  the what-if simulation itself runs only in the browser and never writes.
 - `GET /transactions` filters: `from`, `to` (inclusive dates; date-only
   bounds cover the whole UTC day), `account_id`, repeated `tag`,
   `min_amount_minor`, `max_amount_minor`, `q` (description and notes), `source`,

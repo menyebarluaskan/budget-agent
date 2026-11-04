@@ -448,6 +448,47 @@ paths:
       responses:
         "200":
           description: Budget summary per tag
+  /api/v1/budgets/{id}/trend:
+    get:
+      summary: Get budget burn-down data
+      description: Read-only spending history for the most recent budget periods.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: false
+          description: Inclusive end date used to select periods. Defaults to today.
+          schema:
+            type: string
+            format: date
+        - name: periods
+          in: query
+          required: false
+          description: Number of most recent periods to return. Defaults to 6.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 24
+      responses:
+        "200":
+          description: Budget periods with spending, amount, and remaining values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetTrend"
+        "400":
+          description: Invalid date or period count
+        "404":
+          description: Budget not found
   /api/v1/dashboard:
     get:
       summary: Get the dashboard read model
@@ -480,6 +521,47 @@ paths:
                 $ref: "#/components/schemas/Dashboard"
         "400":
           description: Invalid date range
+  /api/v1/analytics/spending:
+    get:
+      summary: Get spending chart data
+      description: Read-only aggregates for the spending-by-tag and monthly trend charts.
+      parameters:
+        - name: X-Workspace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          description: Inclusive start date. Defaults to the first day of the current month.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: Inclusive end date. Defaults to the last day of the current month and must be provided with `from`.
+          schema:
+            type: string
+            format: date
+        - name: months
+          in: query
+          required: false
+          description: Calendar months in the trend, ending with the month that contains `to`. Defaults to 6.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 24
+      responses:
+        "200":
+          description: Spending by tag and the monthly income/expense trend
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpendingAnalytics"
+        "400":
+          description: Invalid date range or month count
   /api/v1/spending/summary:
     get:
       summary: Get spending summary
@@ -923,3 +1005,94 @@ components:
         period_end:
           type: string
           format: date
+    SpendingAnalytics:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        currency:
+          type: string
+        total_spent_minor:
+          type: integer
+          format: int64
+        untagged_minor:
+          type: integer
+          format: int64
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/TagSpending"
+        trend:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthPoint"
+    TagSpending:
+      type: object
+      properties:
+        tag_id:
+          type: string
+        name:
+          type: string
+        color:
+          type: string
+        spent_minor:
+          type: integer
+          format: int64
+    MonthPoint:
+      type: object
+      properties:
+        month:
+          type: string
+          description: Calendar month in `YYYY-MM` form.
+        income_minor:
+          type: integer
+          format: int64
+        expense_minor:
+          type: integer
+          format: int64
+        net_minor:
+          type: integer
+          format: int64
+    BudgetTrend:
+      type: object
+      properties:
+        budget_id:
+          type: string
+        name:
+          type: string
+        period:
+          type: string
+          enum:
+            - weekly
+            - monthly
+        currency:
+          type: string
+        amount_minor:
+          type: integer
+          format: int64
+        periods:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetPeriodSpending"
+    BudgetPeriodSpending:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+        spent_minor:
+          type: integer
+          format: int64
+        amount_minor:
+          type: integer
+          format: int64
+        remaining_minor:
+          type: integer
+          format: int64

@@ -182,3 +182,44 @@ export interface DateRange {
 	from: string;
 	to: string;
 }
+
+export interface TagSpending {
+	tag_id: string;
+	name: string;
+	color: string;
+	spent_minor: number;
+}
+
+export interface MonthPoint {
+	month: string;
+	income_minor: number;
+	expense_minor: number;
+	net_minor: number;
+}
+
+export interface SpendingAnalytics {
+	from: string;
+	to: string;
+	currency: string;
+	total_spent_minor: number;
+	untagged_minor: number;
+	tags: TagSpending[];
+	trend: MonthPoint[];
+}
+
+export interface BudgetPeriodSpending {
+	start: string;
+	end: string;
+	spent_minor: number;
+	amount_minor: number;
+	remaining_minor: number;
+}
+
+export interface BudgetTrend {
+	budget_id: string;
+	name: string;
+	period: BudgetPeriod;
+	currency: string;
+	amount_minor: number;
+	periods: BudgetPeriodSpending[];
+}

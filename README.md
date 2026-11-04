@@ -92,7 +92,7 @@ The full rationale, data model, API surface, security rules, and decisions are i
 | --- | --- |
 | M0 — Specification and foundations | Complete: spec approved, scaffolded, CI green, MIT licensed |
 | M1 — Backend core | Complete: workspace schema, accounts, tags, transactions, budgets, summaries, auth, OpenAPI |
-| M2 — Web frontend | In progress: app shell, responsive navigation, dashboard, and transaction flow |
+| M2 — Web frontend | In progress: app shell, dashboard with charts, transaction flow, budget/account screens, what-if simulation |
 | M3 — AI, MCP, WhatsApp | Not started |
 | M4 — Deployment and operations | Not started |
 

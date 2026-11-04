@@ -24,8 +24,11 @@ Live progress tracker for **Integrated Personal Budget**.
 ## Current phase
 
 **Phase 3 — Web frontend.** Backend core (M1) is complete. The app shell,
-dashboard, and transaction flow are in place; budget and account management
-screens are next.
+dashboard with charts, transaction flow, and budget/account screens are in
+place. Next: T-206 PWA polish and accessibility pass.
+
+**Known issue:** `make lint` reports pre-existing formatting and ESLint errors in
+older account and budget screens, unrelated to T-205. Tracked as T-209.
 
 ## Milestone 0 — Project foundations
 
@@ -64,10 +67,11 @@ screens are next.
 | T-202 | Dashboard with balance, spending, and budget widgets | `[x]` | `feat(web): add dashboard widgets and aggregate API` |
 | T-203 | Transaction list, filters, and create/edit flow | `[x]` | `feat(web): add transaction list and create/edit flow` |
 | T-204 | Budget and account management screens | `[x]` | `feat(web): add budget and account management screens` |
-| T-205 | Spending charts and what-if simulation | `[ ]` | — |
+| T-205 | Spending charts and what-if simulation | `[x]` | `feat(web): add spending charts and what-if simulation` |
 | T-206 | PWA polish, accessibility pass, and performance budget check | `[ ]` | — |
 | T-207 | Workspace switcher and personal/shared workspace UI, hidden until more than one workspace exists | `[ ]` | — |
 | T-208 | Inline tag picker in the transaction form with create, rename, and predefined color editing | `[x]` | `feat(web): add inline tag management to transactions` |
+| T-209 | Fix pre-existing frontend lint and formatting failures | `[ ]` | — |
 
 ## Milestone 3 — AI, MCP, and WhatsApp
 
@@ -127,3 +131,4 @@ These are recorded as D1–D13 in `docs/TECH_SPEC.md` §16.
 | 2026-11-03 | M1 backend core complete; T-201 added the app shell, design tokens, and responsive navigation. |
 | 2026-11-03 | T-202 dashboard and aggregate API completed. |
 | 2026-11-04 | T-208 added inline tag creation, rename, and color editing to the transaction form. |
+| 2026-11-04 | T-205 added tag spending and monthly trend charts, budget burn-down, and a local what-if simulator. |

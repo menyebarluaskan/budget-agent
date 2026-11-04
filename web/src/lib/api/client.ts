@@ -5,9 +5,11 @@ import type {
 	Budget,
 	BudgetInput,
 	BudgetSummary,
+	BudgetTrend,
 	BudgetUpdate,
 	Dashboard,
 	DateRange,
+	SpendingAnalytics,
 	Tag,
 	TagInput,
 	TagUpdate,
@@ -80,6 +82,20 @@ function unwrapList<T>(body: Record<string, T[] | undefined> | T[], key: string)
 export function getDashboard(range: DateRange, fetcher: Fetcher = fetch): Promise<Dashboard> {
 	const params = new URLSearchParams({ from: range.from, to: range.to });
 	return requestJSON<Dashboard>(`/api/v1/dashboard?${params.toString()}`, fetcher);
+}
+
+/** Fetch spending by tag and the monthly trend for the chart panels. */
+export function getSpendingAnalytics(
+	range: DateRange,
+	months = 6,
+	fetcher: Fetcher = fetch
+): Promise<SpendingAnalytics> {
+	const params = new URLSearchParams({
+		from: range.from,
+		to: range.to,
+		months: String(months)
+	});
+	return requestJSON<SpendingAnalytics>(`/api/v1/analytics/spending?${params.toString()}`, fetcher);
 }
 
 /** Fetch accounts with their current balances. */
@@ -231,6 +247,22 @@ export function listBudgets(fetcher: Fetcher = fetch): Promise<Budget[]> {
 /** Fetch one budget with its tags. */
 export function getBudget(id: string, fetcher: Fetcher = fetch): Promise<Budget> {
 	return requestJSON<Budget>(`/api/v1/budgets/${encodeURIComponent(id)}`, fetcher);
+}
+
+/** Fetch spending for the most recent periods of a budget. */
+export function getBudgetTrend(
+	id: string,
+	options: { periods?: number; to?: string } = {},
+	fetcher: Fetcher = fetch
+): Promise<BudgetTrend> {
+	const params = new URLSearchParams();
+	if (options.periods !== undefined) params.set('periods', String(options.periods));
+	if (options.to) params.set('to', options.to);
+	const query = params.toString();
+	return requestJSON<BudgetTrend>(
+		`/api/v1/budgets/${encodeURIComponent(id)}/trend${query ? `?${query}` : ''}`,
+		fetcher
+	);
 }
 
 /** Create a weekly or monthly tag-based budget. */

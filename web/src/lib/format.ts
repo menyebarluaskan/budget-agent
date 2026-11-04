@@ -60,7 +60,7 @@ export function formatDate(value: string, locale = DEFAULT_LOCALE): string {
 
 /** Format a date as `November 2026`. */
 export function formatMonthYear(value: string, locale = DEFAULT_LOCALE): string {
-	const date = toDate(value);
+	const date = toDate(value.length === 7 ? `${value}-01` : value);
 	if (!date) {
 		return value;
 	}
@@ -68,6 +68,31 @@ export function formatMonthYear(value: string, locale = DEFAULT_LOCALE): string 
 		month: 'long',
 		year: 'numeric',
 		timeZone: 'UTC'
+	}).format(date);
+}
+
+/** Format a `YYYY-MM` month or date as `Nov`. */
+export function formatMonthShort(value: string, locale = DEFAULT_LOCALE): string {
+	const date = toDate(value.length === 7 ? `${value}-01` : value);
+	if (!date) {
+		return value;
+	}
+	return new Intl.DateTimeFormat(locale, {
+		month: 'short',
+		timeZone: 'UTC'
+	}).format(date);
+}
+
+/** Format a date as `Nov 5`, useful for compact chart axes. */
+export function formatDayMonth(value: string, locale = DEFAULT_LOCALE): string {
+	const date = toDate(value);
+	if (!date) {
+		return value;
+	}
+	return new Intl.DateTimeFormat(locale, {
+		day: 'numeric',
+		month: 'short',
+		timeZone: DATE_ONLY.test(value) ? 'UTC' : undefined
 	}).format(date);
 }
 

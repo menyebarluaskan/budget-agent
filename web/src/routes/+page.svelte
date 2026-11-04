@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { getDashboard } from '$lib/api/client';
-	import type { Dashboard } from '$lib/api/types';
+	import { getDashboard, getSpendingAnalytics } from '$lib/api/client';
+	import type { Dashboard, SpendingAnalytics } from '$lib/api/types';
 	import ButtonLink from '$lib/components/ButtonLink.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
+	import MonthlyTrendChart from '$lib/components/charts/MonthlyTrendChart.svelte';
+	import TagSpendingChart from '$lib/components/charts/TagSpendingChart.svelte';
 	import BudgetProgressList from '$lib/components/dashboard/BudgetProgressList.svelte';
 	import RecentTransactionList from '$lib/components/dashboard/RecentTransactionList.svelte';
 	import StatCard from '$lib/components/dashboard/StatCard.svelte';
@@ -21,6 +23,7 @@
 
 	let cursor = $state(new Date());
 	let dashboard = $state<Dashboard | null>(null);
+	let analytics = $state<SpendingAnalytics | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let latestRequest = 0;
@@ -55,9 +58,13 @@
 		loading = true;
 		error = null;
 		try {
-			const data = await getDashboard(range);
+			const [data, spending] = await Promise.all([
+				getDashboard(range),
+				getSpendingAnalytics(range)
+			]);
 			if (request === latestRequest) {
 				dashboard = data;
+				analytics = spending;
 			}
 		} catch (cause) {
 			if (request === latestRequest) {
@@ -227,6 +234,45 @@
 					/>
 				</div>
 			</section>
+
+			{#if analytics}
+				<div class="grid items-start gap-6 lg:grid-cols-2">
+					<section
+						class="rounded-card border border-line bg-surface shadow-card"
+						aria-labelledby="tag-spending-heading"
+					>
+						<div class="flex items-baseline justify-between gap-3 border-b border-line px-5 py-4">
+							<h2 id="tag-spending-heading" class="text-base font-semibold tracking-tight">
+								Spending by tag
+							</h2>
+							<p class="text-xs text-ink-muted">{periodLabel}</p>
+						</div>
+						<div class="p-5">
+							<TagSpendingChart
+								tags={analytics.tags}
+								untaggedMinor={analytics.untagged_minor}
+								totalMinor={analytics.total_spent_minor}
+								currency={analytics.currency}
+							/>
+						</div>
+					</section>
+
+					<section
+						class="rounded-card border border-line bg-surface shadow-card"
+						aria-labelledby="trend-heading"
+					>
+						<div class="flex items-baseline justify-between gap-3 border-b border-line px-5 py-4">
+							<h2 id="trend-heading" class="text-base font-semibold tracking-tight">
+								Monthly trend
+							</h2>
+							<p class="text-xs text-ink-muted">Last {analytics.trend.length} months</p>
+						</div>
+						<div class="p-5">
+							<MonthlyTrendChart points={analytics.trend} currency={analytics.currency} />
+						</div>
+					</section>
+				</div>
+			{/if}
 
 			<div class="grid items-start gap-6 lg:grid-cols-2">
 				<section
