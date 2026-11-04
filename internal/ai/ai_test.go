@@ -31,10 +31,10 @@ func TestOpenAIParseTransaction(t *testing.T) {
 }
 
 func TestNewFromConfigDisabled(t *testing.T) {
-	if p, ok := NewFromConfig(false, "http://x", "k", "m", 0); ok || p != nil {
+	if p, ok := NewFromConfig(false, "http://x", "k", "m", "", 0); ok || p != nil {
 		t.Fatal("expected disabled")
 	}
-	if p, ok := NewFromConfig(true, "", "k", "m", 0); ok || p != nil {
+	if p, ok := NewFromConfig(true, "", "k", "m", "", 0); ok || p != nil {
 		t.Fatal("expected disabled without base url")
 	}
 }

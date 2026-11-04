@@ -55,7 +55,7 @@ func run() error {
 		return fmt.Errorf("bootstrap workspace: %w", err)
 	}
 
-	aiProvider, aiEnabled := ai.NewFromConfig(cfg.AIEnabled, cfg.AIBaseURL, cfg.AIAPIKey, cfg.AIModel, cfg.AITimeout)
+	aiProvider, aiEnabled := ai.NewFromConfig(cfg.AIEnabled, cfg.AIBaseURL, cfg.AIAPIKey, cfg.AIModel, cfg.AIVisionModel, cfg.AITimeout)
 
 	ready := func(ctx context.Context) error { return database.PingContext(ctx) }
 	server := &http.Server{
@@ -67,6 +67,7 @@ func run() error {
 			AuthMode:        cfg.AuthMode,
 			TokenPepper:     cfg.TokenPepper,
 			DefaultCurrency: cfg.DefaultCurrency,
+			ReceiptsDir:     cfg.ReceiptsDir,
 			AIEnabled:       aiEnabled,
 			AIProvider:      aiProvider,
 		}),

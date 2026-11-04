@@ -84,7 +84,7 @@ older account and budget screens, unrelated to T-205. Tracked as T-209.
 | T-302b | parse-transaction endpoint → draft creation, validation, audit log | `[x]` | `feat(ai): add parse-transaction endpoint creating a draft` |
 | T-302c | Prompt fixtures and golden tests for parsing accuracy | `[x]` | `test(ai): add prompt fixture and golden test for parsing` |
 | T-303 | WhatsApp webhook with signature verification, allowlist, and idempotency | `[!]` | Deferred by D5 |
-| T-304 | Receipt upload and vision-based OCR into a confirmable draft | `[ ]` | — |
+| T-304 | Receipt upload and vision-based OCR into a confirmable draft | `[x]` | `feat(receipts): add receipt upload with tesseract + vision LLM OCR` |
 | T-305 | Audit trail for AI-assisted writes | `[ ]` | — |
 
 ## Milestone 4 — Deployment and operations

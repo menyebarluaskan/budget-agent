@@ -3,6 +3,7 @@ package ai
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -43,14 +44,16 @@ type ReceiptDraft struct {
 type Provider interface {
 	ParseTransaction(ctx context.Context, in ParseInput) (TransactionDraft, error)
 	ExtractReceipt(ctx context.Context, image []byte, mime string) (ReceiptDraft, error)
+	ParseReceiptText(ctx context.Context, ocrText string) (ReceiptDraft, error)
 }
 
 // OpenAIConfig configures the OpenAI-compatible adapter.
 type OpenAIConfig struct {
-	BaseURL string
-	APIKey  string
-	Model   string
-	Timeout time.Duration
+	BaseURL     string
+	APIKey      string
+	Model       string
+	VisionModel string
+	Timeout     time.Duration
 }
 
 // OpenAI is an OpenAI-compatible provider.
@@ -148,25 +151,24 @@ func (o *OpenAI) ParseTransaction(ctx context.Context, in ParseInput) (Transacti
 	return draft, nil
 }
 
-func (o *OpenAI) ExtractReceipt(ctx context.Context, image []byte, mime string) (ReceiptDraft, error) {
-	// Deferred to T-304; return not-implemented for now.
-	return ReceiptDraft{}, fmt.Errorf("receipt extraction not implemented")
-}
-
 // NewFromConfig builds a provider from config. Returns nil,false if AI is disabled.
-func NewFromConfig(enabled bool, baseURL, apiKey, model string, timeout time.Duration) (Provider, bool) {
+func NewFromConfig(enabled bool, baseURL, apiKey, model, visionModel string, timeout time.Duration) (Provider, bool) {
 	if !enabled || baseURL == "" || model == "" {
 		return nil, false
 	}
 	return NewOpenAI(OpenAIConfig{
-		BaseURL: baseURL,
-		APIKey:  apiKey,
-		Model:   model,
-		Timeout: timeout,
+		BaseURL:     baseURL,
+		APIKey:      apiKey,
+		Model:       model,
+		VisionModel: visionModel,
+		Timeout:     timeout,
 	}), true
 }
 
 
+const receiptSystemPrompt = `You are a receipt parser. Given a receipt image, extract: merchant, occurred_at (ISO8601 or ""), total_minor (integer, cents), tax_minor (integer or 0), tag_names (array of suggested tags), line_items (array of "name: amount" strings). Respond ONLY with a JSON object with those keys. All fields nullable/optional; use 0 or "" when unknown.`
+
+const receiptTextSystemPrompt = `You are a receipt parser. Given OCR text from a receipt, extract: merchant, occurred_at (ISO8601 or ""), total_minor (integer, cents), tax_minor (integer or 0), tag_names (array of suggested tags), line_items (array of "name: amount" strings). Respond ONLY with a JSON object with those keys. All fields nullable/optional; use 0 or "" when unknown.`
 func join(ss []string) string {
 	out := ""
 	for i, s := range ss {
@@ -176,4 +178,119 @@ func join(ss []string) string {
 		out += s
 	}
 	return out
+}
+
+// ExtractReceipt sends the image to the vision model and parses a ReceiptDraft.
+func (o *OpenAI) ExtractReceipt(ctx context.Context, image []byte, mime string) (ReceiptDraft, error) {
+	b64 := base64.StdEncoding.EncodeToString(image)
+	dataURL := "data:" + mime + ";base64," + b64
+
+	type contentPart struct {
+		Type     string `json:"type"`
+		Text     string `json:"text,omitempty"`
+		ImageURL *struct {
+			URL string `json:"url"`
+		} `json:"image_url,omitempty"`
+	}
+	type msg struct {
+		Role    string        `json:"role"`
+		Content []contentPart `json:"content"`
+	}
+	type req struct {
+		Model          string `json:"model"`
+		Messages       []msg  `json:"messages"`
+		ResponseFormat map[string]any `json:"response_format,omitempty"`
+	}
+	body := req{
+		Model: o.cfg.VisionModelOrDefault(),
+		Messages: []msg{
+			{Role: "system", Content: []contentPart{{Type: "text", Text: receiptSystemPrompt}}},
+			{Role: "user", Content: []contentPart{
+				{Type: "text", Text: "Parse this receipt."},
+				{Type: "image_url", ImageURL: &struct {
+					URL string `json:"url"`
+				}{URL: dataURL}},
+			}},
+		},
+		ResponseFormat: map[string]any{"type": "json_object"},
+	}
+	b, _ := json.Marshal(body)
+	req2, err := http.NewRequestWithContext(ctx, http.MethodPost, o.cfg.BaseURL+"/chat/completions", bytes.NewReader(b))
+	if err != nil {
+		return ReceiptDraft{}, err
+	}
+	req2.Header.Set("Content-Type", "application/json")
+	if o.cfg.APIKey != "" {
+		req2.Header.Set("Authorization", "Bearer "+o.cfg.APIKey)
+	}
+	resp, err := o.client.Do(req2)
+	if err != nil {
+		return ReceiptDraft{}, err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return ReceiptDraft{}, fmt.Errorf("ai request failed: %s: %s", resp.Status, string(raw))
+	}
+	var cr chatResponse
+	if err := json.Unmarshal(raw, &cr); err != nil {
+		return ReceiptDraft{}, err
+	}
+	if len(cr.Choices) == 0 {
+		return ReceiptDraft{}, fmt.Errorf("no choices returned")
+	}
+	var draft ReceiptDraft
+	if err := json.Unmarshal([]byte(cr.Choices[0].Message.Content), &draft); err != nil {
+		return ReceiptDraft{}, fmt.Errorf("invalid ai output: %w", err)
+	}
+	return draft, nil
+}
+
+// ParseReceiptText structures OCR text into a ReceiptDraft using the text model.
+func (o *OpenAI) ParseReceiptText(ctx context.Context, ocrText string) (ReceiptDraft, error) {
+	reqBody := chatRequest{
+		Model: o.cfg.Model,
+		Messages: []chatMessage{
+			{Role: "system", Content: receiptTextSystemPrompt},
+			{Role: "user", Content: ocrText},
+		},
+		ResponseFormat: map[string]any{"type": "json_object"},
+	}
+	b, _ := json.Marshal(reqBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.cfg.BaseURL+"/chat/completions", bytes.NewReader(b))
+	if err != nil {
+		return ReceiptDraft{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if o.cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+o.cfg.APIKey)
+	}
+	resp, err := o.client.Do(req)
+	if err != nil {
+		return ReceiptDraft{}, err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return ReceiptDraft{}, fmt.Errorf("ai request failed: %s: %s", resp.Status, string(raw))
+	}
+	var cr chatResponse
+	if err := json.Unmarshal(raw, &cr); err != nil {
+		return ReceiptDraft{}, err
+	}
+	if len(cr.Choices) == 0 {
+		return ReceiptDraft{}, fmt.Errorf("no choices returned")
+	}
+	var draft ReceiptDraft
+	if err := json.Unmarshal([]byte(cr.Choices[0].Message.Content), &draft); err != nil {
+		return ReceiptDraft{}, fmt.Errorf("invalid ai output: %w", err)
+	}
+	return draft, nil
+}
+
+func (c OpenAIConfig) VisionModelOrDefault() string {
+	if c.VisionModel != "" {
+		return c.VisionModel
+	}
+	return c.Model
 }

@@ -3,12 +3,16 @@ package httpapi
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +25,7 @@ import (
 	"budget-agent/internal/budgets"
 	"budget-agent/internal/dashboard"
 	"budget-agent/internal/mcp"
+	"budget-agent/internal/ocr"
 	"budget-agent/internal/tags"
 	"budget-agent/internal/transactions"
 )
@@ -139,6 +144,7 @@ type Options struct {
 	AuthMode        string
 	TokenPepper     string
 	DefaultCurrency string
+	ReceiptsDir     string
 	AIEnabled       bool
 	AIProvider      any
 }
@@ -183,6 +189,7 @@ func New(opts Options) http.Handler {
 		registerDashboardRoutes(mux, dashboard.NewService(opts.DB, opts.DefaultCurrency))
 		mux.Handle("/mcp", mcp.NewHandler(mcp.Deps{DB: opts.DB, DefaultCurrency: opts.DefaultCurrency}))
 		registerAIRoutes(mux, opts)
+		registerReceiptRoutes(mux, opts)
 	}
 	authed := AuthMiddleware(opts.DB, mux, opts.AuthMode, opts.TokenPepper)
 	return withMiddleware(logger, authed)
@@ -964,6 +971,114 @@ func registerAIRoutes(mux *http.ServeMux, opts Options) {
 				"tag_ids":      tagIDs,
 				"confidence":   draft.Confidence,
 			},
+		})
+	})
+}
+
+func registerReceiptRoutes(mux *http.ServeMux, opts Options) {
+	mux.HandleFunc("POST /api/v1/receipts", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		r.Body = http.MaxBytesReader(w, r.Body, 10*1024*1024)
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "read body: "+err.Error())
+			return
+		}
+		if len(data) == 0 {
+			writeError(w, http.StatusBadRequest, "empty body")
+			return
+		}
+		mime := http.DetectContentType(data)
+		if mime != "image/jpeg" && mime != "image/png" && mime != "image/webp" && mime != "image/heic" && mime != "image/heif" {
+			writeError(w, http.StatusBadRequest, "unsupported image type: "+mime)
+			return
+		}
+		// sha256
+		h := sha256.Sum256(data)
+		sha := hex.EncodeToString(h[:])
+		// store file
+		if opts.ReceiptsDir != "" {
+			_ = os.MkdirAll(opts.ReceiptsDir, 0755)
+		}
+		storedPath := ""
+		if opts.ReceiptsDir != "" {
+			storedPath = opts.ReceiptsDir + "/" + sha
+			if _, err := os.Stat(storedPath); os.IsNotExist(err) {
+				if err := os.WriteFile(storedPath, data, 0644); err != nil {
+					writeError(w, http.StatusInternalServerError, "store file: "+err.Error())
+					return
+				}
+			}
+		}
+		id := uuid.NewString()
+		now := time.Now().UTC().Format(time.RFC3339)
+		_, err = opts.DB.ExecContext(r.Context(), `
+			INSERT INTO receipts (id, workspace_id, stored_path, mime_type, byte_size, sha256, ocr_status, created_at)
+			VALUES (?,?,?,?,?,?,?,?)`,
+			id, ws, storedPath, mime, len(data), sha, "pending", now)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		// OCR: tesseract raw text (free, local)
+		rawText := ""
+		if ocr.Available() && storedPath != "" {
+			rawText = ocr.ExtractText(storedPath)
+		}
+		// AI structuring
+		status := "done"
+		ocrJSON := ""
+		if opts.AIEnabled {
+			if provider, ok := opts.AIProvider.(ai.Provider); ok && provider != nil {
+				var draft ai.ReceiptDraft
+				var derr error
+				if mime == "image/jpeg" || mime == "image/png" || mime == "image/webp" {
+					draft, derr = provider.ExtractReceipt(r.Context(), data, mime)
+				} else if rawText != "" {
+					draft, derr = provider.ParseReceiptText(r.Context(), rawText)
+				}
+				if derr == nil {
+					b, _ := json.Marshal(draft)
+					ocrJSON = string(b)
+				}
+			}
+		}
+		if rawText != "" && ocrJSON == "" {
+			// tesseract-only: store raw text, no structured draft
+			status = "done"
+		}
+		_, _ = opts.DB.ExecContext(r.Context(), `
+			UPDATE receipts SET ocr_status=?, ocr_text=?, ocr_json=? WHERE id=?`,
+			status, rawText, ocrJSON, id)
+		writeJSON(w, http.StatusCreated, map[string]any{
+			"receipt_id": id,
+			"ocr_status": status,
+			"ocr_text":   rawText,
+			"ocr_json":   ocrJSON,
+		})
+	})
+
+	mux.HandleFunc("GET /api/v1/receipts/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ws := workspaceID(r)
+		var storedPath, mime, sha, status, text, ocrjson, created string
+		var size int
+		err := opts.DB.QueryRowContext(r.Context(), `
+			SELECT stored_path, mime_type, byte_size, sha256, ocr_status, ocr_text, ocr_json, created_at
+			FROM receipts WHERE id = ? AND workspace_id = ?`, r.PathValue("id"), ws).Scan(
+			&storedPath, &mime, &size, &sha, &status, &text, &ocrjson, &created)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"id":          r.PathValue("id"),
+			"mime_type":   mime,
+			"byte_size":   size,
+			"sha256":      sha,
+			"ocr_status":  status,
+			"ocr_text":    text,
+			"ocr_json":    ocrjson,
+			"created_at":  created,
 		})
 	})
 }
