@@ -153,6 +153,9 @@ DATABASE_PATH=$PWD/.local/data/budget.db bin/budget-agent backup --dest /tmp/bk
 
 ### Deployment smoke
 
+`make image` only needs Podman; Node.js and pnpm are not required on the host
+because the frontend builds inside the container.
+
 ```sh
 make image
 podman run --rm -p 8080:8080 \

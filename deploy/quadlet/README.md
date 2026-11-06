@@ -3,6 +3,8 @@
 ## Prerequisites
 
 - Linux host with cgroup v2, Podman 5.x+, systemd user services.
+- Building the image only needs Podman; Node.js and Go are not required on the
+  host (the container builds the frontend and binary itself).
 - `loginctl enable-linger $USER` so services run at boot.
 - SELinux: use `:Z` mounts (already in the units).
 

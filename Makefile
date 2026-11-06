@@ -82,7 +82,7 @@ check: lint web-check test web-build ## Run the full local quality gate
 clean: ## Remove generated build output
 	rm -rf $(BIN_DIR) $(WEB_DIR)/build $(WEB_DIR)/.svelte-kit $(WEB_DIR)/coverage $(WEB_DIR)/test-results $(WEB_DIR)/playwright-report
 
-image: web-build ## Build the container image with Podman
+image: ## Build the container image with Podman (frontend builds inside the container)
 	podman build -f Containerfile -t budget-agent:latest .
 
 deploy: image ## Build image and print install reminder
